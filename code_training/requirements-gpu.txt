@@ -1,0 +1,17 @@
+numpy
+jax[cuda12]
+jaxtyping
+dm-haiku
+gymnax
+wandb
+optax
+distrax
+hydra-core
+flashbax
+tabulate
+matplotlib
+seaborn
+pandas
+scipy
+pyyaml
+--extra-index-url https://pypi.ngc.nvidia.com
