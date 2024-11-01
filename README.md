@@ -1,5 +1,5 @@
 # Learning Collusion in Episodic, Inventory-Constrained Markets
-This is the codebase for the arxiv paper of the same title. For the training code, we have built on the [Pax: Scalable Opponent Shaping in JAX](https://github.com/ucl-dark/pax/tree/main) repo.
+This is the codebase for the [arXiv paper of the same title](https://arxiv.org/abs/2410.18871). For the training code, we have built on the [Pax: Scalable Opponent Shaping in JAX](https://github.com/ucl-dark/pax/tree/main) repo.
 
 The project consists of two folders: 
 - training and plotting agents (code_training)
