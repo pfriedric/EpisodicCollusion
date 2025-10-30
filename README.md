@@ -1,41 +1,57 @@
 # Learning Collusion in Episodic, Inventory-Constrained Markets
-This is the codebase for the [arXiv paper of the same title](https://arxiv.org/abs/2410.18871). For the training code, we have built on the [Pax: Scalable Opponent Shaping in JAX](https://github.com/ucl-dark/pax/tree/main) repo.
+
+This is the codebase for the [arXiv paper of the same title](https://arxiv.org/abs/2410.18871). For the training code, we have heavily adapted the [Pax: Scalable Opponent Shaping in JAX](https://github.com/ucl-dark/pax/tree/main) repo.
 
 The project consists of two folders: 
 - training and plotting agents (code_training)
 - calculating the generalized Nash equilibria and monopolistic prices (code_equilibrium_calculations)
 
-We recommend using a virtual environment (or two separate ones for each part of this project), e.g. via conda:
+To avoid errors, treat the two folders `code_training` and `code_equilibrium_calculations` as separate projects and run the scripts from within each respective folder.
 
-```
-$ conda create -n coll_env python=3.9 && conda activate coll_env
-```
+We recommend using the `uv` package manager ([link to docs](https://docs.astral.sh/uv/getting-started/installation/)). Get `uv` via
+
+Macos/Unix: 
+`$ curl -LsSf https://astral.sh/uv/install.sh | sh`
+
+Windows:
+`$ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
+
+or, platform-agnostic using `pip`:
+`$ pip install uv`
+
 
 ## Instructions for training and plotting agents (code_training)
-This part of the project uses Python, and JAX for the learning code.
+This part of the project uses Python, and JAX for the learning code. Navigate into this folder before running any scripts.
 
 ### Requirements
-Install requirements using `pip`: 
+Create and activate a virtual environment with `uv` (alternatively e.g. `conda`), then install requirements with `$ uv pip` (if not using `uv`, just `$ pip`):
 
 ```
-$ pip install -r requirements.txt 
+$ uv venv coll_venv --python 3.10
+$ source coll_venv/bin/activate
+$ uv pip install --no-cache-dir -r requirements.txt
 ```
 
-This defaults to CPU -- use `requirements-gpu.txt` for the GPU version, which uses CUDA.
+This defaults to CPU. Use `requirements-gpu.txt` for the GPU version, which uses CUDA.
 
 ### Running experiments
-ensure the config you want is on the top level of the `conf/` directory, then call the main script with:
+Ensure the config you want is on the top level of the `conf/` directory, then call the main script with:
 
 ```
 $ python main.py -cn CONFIG_NAME
 ```
 
-where CONFIG_NAME is the name of your config, without `.yaml`. E.g. `-cn config_DQN`.
+where CONFIG_NAME is the name of your config, without `.yaml`. E.g. `-cn config_DQN`. To test if your setup is working, you can run the debug scripts (run in 100seconds on a M1 Max CPU)
 
-The run results are saved to a folder in `exp/`, depending on the config.
+```
+$ python main.py -cn config_PPO_debug
+$ python main.py -cn config_DQN_debug
+```
+
+The run results are saved to a folder in `exp/`.
 
 ### Plotting
-To plot, use the plotting scripts. They use VSCode's functionality of using cells in a .py file, so if you don't want to use jupyter, remove any occurence of `# %%` in the plotting scripts.
+To plot, use the plotting scripts. They use VSCode's functionality of using cells in a .py file, so you can run them as a notebook (running them as a script isn't tested).
 
 At the top of the plotting script, directly below the imports, adjust the `save_dir` string to the run that you want to plot. E.g., if the run was saved to `exp/compPPO`, that should be the `save_dir`. 
 
@@ -54,27 +70,29 @@ We have the following plotting scripts:
 
 ## Instructions for calculating the equilibrium price levels (code_equilibrium_calculations)
 
-This script solves a Generalized Nash Equilibrium Problem (GNEP) for a multi-agent pricing scenario.
+This script solves a Generalized Nash Equilibrium Problem (GNEP) for a multi-agent pricing scenario. Navigate into this folder before running any scripts.
 
 ### Requirements
-To run this script, you need to have Python 3.6+ installed along with the following packages:
-
-- numpy
-- pyomo
-- amplpy
-
-You can install these packages using `pip`:
+Create and activate a virtual environment, then install requirements:
 
 ```
-$ pip install numpy pyomo amplpy
+$ uv venv coll_venv --python 3.10
+$ source coll_venv/bin/activate
+$ uv pip install --no-cache-dir -r requirements.txt
 ```
 
-Additionally, you need to have one of the following solvers installed:
+For `amplpy`, you may need a free license, see instructions [on their site](https://amplpy.ampl.com/en/latest/).
+
+Additionally, install numerical solvers via
+
+`$ uv pip install -i https://portal.ampl.com/dl/pypi ampl_module_base ampl_module_coin`
+
+We're using the following numerical solvers:
 - IPOPT
 - BONMIN
 - COUENNE
 
-These can be obtained from the COIN-OR site. Note: only Bonmin or Couenne correctly model the integer-valued demand.
+Details can be found on the [COIN-OR site](https://www.coin-or.org/downloading/). Note: only Bonmin or Couenne correctly model the integer-valued demand.
 
 ### Usage
 
@@ -83,7 +101,6 @@ Run the script from the command line with various arguments:
 ```
 $ python gnep_cs.py [arguments]
 ```
-
 
 ### Arguments
 

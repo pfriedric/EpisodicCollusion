@@ -2,25 +2,10 @@
 import pickle
 import os
 import jax
-import jax.numpy as jnp
 import numpy as np
 import matplotlib.pyplot as plt
-import yaml
-import pandas as pd
 import glob
-from tabulate import tabulate
-from agents.dqn.dqn import DQN, make_DQN_agent
-from agents.dqn.networks import make_dqn_marketenv_network
-from environment.market_env import MarketEnv, EnvParams
-import optax
-
-from plotting_utils import (
-    apply_moving_average,
-    overall_mean_stdev_from_seed_means_variances,
-    plot_agent_metrics_shaded,
-    plot_agent_metrics_indiv_seeds,
-    display_single_plot,
-)
+from plotting_utils import display_single_plot
 
 ### Alter this for different runs. Options for the algorithm: "DQN", "PPO", "compPPO", "unconstDQN"
 save_dir = "exp/DQN"
@@ -47,7 +32,9 @@ try:
     if isinstance(log_data, tuple):
         if len(log_data) == 2:
             log_data, eval_log_data = log_data
-            forced_deviation_log_data = None  # has shape [num_seeds, num_configs, num_deviations, num_timesteps]
+            forced_deviation_log_data = (
+                None  # has shape [num_seeds, num_configs, num_deviations, num_timesteps]
+            )
             forced_deviation_log_data_unstacked = None
             print(f"no forced deviation log data!")
         elif len(log_data) == 3:
@@ -62,9 +49,7 @@ try:
 
     plot_dir = glob.glob(f"{save_dir}/forced_deviation_")
     if not plot_dir:
-        print(
-            f"No forced deviation plots directory found in {save_dir}. Proceeding to plot."
-        )
+        print(f"No forced deviation plots directory found in {save_dir}. Proceeding to plot.")
         plot_new = True
     else:
         print(f"Found plot directory: {plot_dir[0]}")
@@ -87,7 +72,7 @@ num_iters = args["num_iters"]
 num_seeds = args["num_seeds"]
 time_horizon = args["time_horizon"]
 num_envs = args["num_envs"]
-agents = [args[f"agent{i+1}"] for i in range(args["num_players"])]
+agents = [args[f"agent{i + 1}"] for i in range(args["num_players"])]
 num_actions = args["num_prices"]
 
 
@@ -116,15 +101,15 @@ print(f"  number of iters: {num_iters}, seeds: {num_seeds}")
 if args["agent_default"] == "DQN":
     print(f"DQN setup:")
     print(
-        f"  LR {args['dqn_default']['learning_rate']} {'annealing to 0' if args['dqn_default']['lr_scheduling'] else 'fixed'} {'over '+str(args['dqn_default']['lr_anneal_duration']*100)+'% of run' if args['dqn_default']['lr_scheduling'] else '(flat)'}"
+        f"  LR {args['dqn_default']['learning_rate']} {'annealing to 0' if args['dqn_default']['lr_scheduling'] else 'fixed'} {'over ' + str(args['dqn_default']['lr_anneal_duration'] * 100) + '% of run' if args['dqn_default']['lr_scheduling'] else '(flat)'}"
     )
     try:
         print(
-            f"  Epsilon anneals {'linearly' if args['dqn_default']['epsilon_anneal_type'] == 'linear' else 'exponentially'} from {args['dqn_default']['epsilon_start']} to {args['dqn_default']['epsilon_finish']} over {args['dqn_default']['epsilon_anneal_duration']*100:.2f}% of run"
+            f"  Epsilon anneals {'linearly' if args['dqn_default']['epsilon_anneal_type'] == 'linear' else 'exponentially'} from {args['dqn_default']['epsilon_start']} to {args['dqn_default']['epsilon_finish']} over {args['dqn_default']['epsilon_anneal_duration'] * 100:.2f}% of run"
         )
     except:
         print(
-            f"  Epsilon anneals linearly from {args['dqn_default']['epsilon_start']} to {args['dqn_default']['epsilon_finish']} over {args['dqn_default']['epsilon_anneal_duration']*100:.2f}% of run"
+            f"  Epsilon anneals linearly from {args['dqn_default']['epsilon_start']} to {args['dqn_default']['epsilon_finish']} over {args['dqn_default']['epsilon_anneal_duration'] * 100:.2f}% of run"
         )
     print(
         f"  buffer size: {args['dqn_default']['buffer_size']}, batch size: {args['dqn_default']['buffer_batch_size']}"
@@ -167,17 +152,17 @@ def plot_per_timestep_metrics(per_timestep_metrics, forced_deviation=False):
     for i, metric in enumerate(metrics_to_plot):
         agent_colors = plt.cm.tab10.colors
         for agent_idx, agent in enumerate(agents):
-            data = per_timestep_metrics[f"{metric}_{agent_idx+1}"][:, 0, :]
+            data = per_timestep_metrics[f"{metric}_{agent_idx + 1}"][:, 0, :]
             # print(f"data name: {metric}_{agent_idx+1}, shape: {data.shape}")
             axs[i].plot(
                 x_range,
                 data.mean(axis=0),
-                label=f"Agent {agent_idx+1}",
+                label=f"Agent {agent_idx + 1}",
                 color=agent_colors[agent_idx],
             )
 
             if is_forced_deviation_plot:
-                eval_data = eval_log_data[f"{metric}_{agent_idx+1}"][:, 0, :]
+                eval_data = eval_log_data[f"{metric}_{agent_idx + 1}"][:, 0, :]
                 axs[i].plot(
                     x_range,
                     eval_data.mean(axis=0),
@@ -251,10 +236,10 @@ def plot_per_timestep_metrics(per_timestep_metrics, forced_deviation=False):
     if is_forced_deviation_plot:
         # plot a comparison of profit vs non-deviation rewards
         for agent_idx in range(len(agents)):
-            numerator = per_timestep_metrics[f"rewards_{agent_idx+1}"][
+            numerator = per_timestep_metrics[f"rewards_{agent_idx + 1}"][
                 :, 0, :
             ]  # shape (num_seeds, time_horizon)
-            denominator = eval_log_data[f"rewards_{agent_idx+1}"][
+            denominator = eval_log_data[f"rewards_{agent_idx + 1}"][
                 :, 0, :
             ]  # shape (num_seeds, time_horizon)
             epsilon = 1e-10
@@ -268,7 +253,7 @@ def plot_per_timestep_metrics(per_timestep_metrics, forced_deviation=False):
             axs[2].plot(
                 x_range,
                 reward_ratio.mean(axis=0),
-                label=f"Agent {agent_idx+1}",
+                label=f"Agent {agent_idx + 1}",
                 color=agent_colors[agent_idx],
             )
             if plot_shaded_or_individual == "shaded":
@@ -294,25 +279,21 @@ def plot_per_timestep_metrics(per_timestep_metrics, forced_deviation=False):
         axs[2].legend()
 
         # plot the ratio of cumulative profit so far to the non-deviation episode
-        total_cumulative_profit = np.zeros(
-            per_timestep_metrics[f"rewards_1"][:, 0, :].shape
-        )
-        total_non_deviation_cumulative_profit = np.zeros(
-            eval_log_data[f"rewards_1"][:, 0, :].shape
-        )
+        total_cumulative_profit = np.zeros(per_timestep_metrics[f"rewards_1"][:, 0, :].shape)
+        total_non_deviation_cumulative_profit = np.zeros(eval_log_data[f"rewards_1"][:, 0, :].shape)
 
         for agent_idx in range(len(agents)):
             cumulative_profit = np.cumsum(
-                per_timestep_metrics[f"rewards_{agent_idx+1}"][:, 0, :], axis=1
+                per_timestep_metrics[f"rewards_{agent_idx + 1}"][:, 0, :], axis=1
             )
             non_deviation_cumulative_profit = np.cumsum(
-                eval_log_data[f"rewards_{agent_idx+1}"][:, 0, :], axis=1
+                eval_log_data[f"rewards_{agent_idx + 1}"][:, 0, :], axis=1
             )
             profit_ratio = cumulative_profit / non_deviation_cumulative_profit
             axs[3].plot(
                 x_range,
                 profit_ratio.mean(axis=0),
-                label=f"Agent {agent_idx+1}",
+                label=f"Agent {agent_idx + 1}",
                 color=agent_colors[agent_idx],
             )
             if plot_shaded_or_individual == "shaded":
@@ -335,9 +316,7 @@ def plot_per_timestep_metrics(per_timestep_metrics, forced_deviation=False):
             total_non_deviation_cumulative_profit += non_deviation_cumulative_profit
 
         # Plot total cumulative profit ratio
-        total_profit_ratio = (
-            total_cumulative_profit / total_non_deviation_cumulative_profit
-        )
+        total_profit_ratio = total_cumulative_profit / total_non_deviation_cumulative_profit
         axs[3].plot(
             x_range,
             total_profit_ratio.mean(axis=0),
@@ -367,7 +346,7 @@ def plot_per_timestep_metrics(per_timestep_metrics, forced_deviation=False):
         axs[3].set_title("Ratio of cumulative profit, deviation/non-deviation ep.")
         axs[3].set_ylabel("Cumulative Profit Ratio")
         axs[3].legend()
-        title += f"\nEnd-of-episode total profit vs non-deviation: {total_profit_ratio.mean(axis=0)[-1]*100:.2f}%"
+        title += f"\nEnd-of-episode total profit vs non-deviation: {total_profit_ratio.mean(axis=0)[-1] * 100:.2f}%"
 
     fig.suptitle(title)  # Increased fontsize and y position
     # plt.subplots_adjust(top=0.85)  # Adjust top margin and increase space between subplots
@@ -405,9 +384,7 @@ def plot_main(eval_metrics, forced_deviation_metrics_unstacked, x_axis):
     fig, title = plot_per_timestep_metrics(eval_metrics, forced_deviation="nope")
 
     # save eval metrics plot
-    fig.savefig(
-        os.path.join(plot_dir, f"fig3_{plot_shaded_or_individual}_nodeviation.png")
-    )
+    fig.savefig(os.path.join(plot_dir, f"fig3_{plot_shaded_or_individual}_nodeviation.png"))
     print(f"saved fig3_{plot_shaded_or_individual}_nodeviation.png")
     # now plot the forced deviation metrics
     for i in deviation_times:
@@ -450,9 +427,7 @@ def load_and_display_plots():
     # plot_pattern = os.path.join(plot_dir, "fig3_best_response_surface.png")
     # display_plots(plot_pattern)
 
-    display_single_plot(
-        os.path.join(save_dir, "paper_plots", f"fig3a_{run_name}_forced_dev.png")
-    )
+    display_single_plot(os.path.join(save_dir, "paper_plots", f"fig3a_{run_name}_forced_dev.png"))
 
 
 if plot_new and exists_log_data:
@@ -494,15 +469,15 @@ def plot_forced_dev():
     agent_colors = ["#1f77b4", "#ff7f0e"]
     for agent_idx, agent in enumerate(agents):
         per_timestep_metrics = forced_deviation_log_data_unstacked[1]
-        data = per_timestep_metrics[f"actions_{agent_idx+1}"][:, 0, :]
+        data = per_timestep_metrics[f"actions_{agent_idx + 1}"][:, 0, :]
         axs[0].plot(
             x_range,
             data.mean(axis=0),
-            label=f"Agent {agent_idx+1}",
+            label=f"Agent {agent_idx + 1}",
             color=agent_colors[agent_idx],
             linewidth=2,
         )
-        eval_data = eval_log_data[f"actions_{agent_idx+1}"][:, 0, :]
+        eval_data = eval_log_data[f"actions_{agent_idx + 1}"][:, 0, :]
         axs[0].plot(
             x_range,
             eval_data.mean(axis=0),
@@ -525,15 +500,15 @@ def plot_forced_dev():
 
         ## plot 2
         per_timestep_metrics = forced_deviation_log_data_unstacked[9]
-        data = per_timestep_metrics[f"actions_{agent_idx+1}"][:, 0, :]
+        data = per_timestep_metrics[f"actions_{agent_idx + 1}"][:, 0, :]
         axs[1].plot(
             x_range,
             data.mean(axis=0),
-            label=f"Agent {agent_idx+1}",
+            label=f"Agent {agent_idx + 1}",
             color=agent_colors[agent_idx],
             linewidth=2,
         )
-        eval_data = eval_log_data[f"actions_{agent_idx+1}"][:, 0, :]
+        eval_data = eval_log_data[f"actions_{agent_idx + 1}"][:, 0, :]
         axs[1].plot(
             x_range,
             eval_data.mean(axis=0),
@@ -556,23 +531,13 @@ def plot_forced_dev():
 
     axs[0].axvline(1, color="#888888", linestyle="--", linewidth=2)
     # Add horizontal lines for competitive and collusive actions using fancy colors
-    axs[0].axhline(
-        2, color="#d62728", linestyle="--", linewidth=2, label="Competitive action"
-    )
-    axs[0].axhline(
-        12, color="#2ca02c", linestyle="--", linewidth=2, label="Collusive action"
-    )
-    axs[0].legend(
-        fontsize=12, frameon=True, loc="upper right", bbox_to_anchor=(1, 0.95)
-    )
+    axs[0].axhline(2, color="#d62728", linestyle="--", linewidth=2, label="Competitive action")
+    axs[0].axhline(12, color="#2ca02c", linestyle="--", linewidth=2, label="Collusive action")
+    axs[0].legend(fontsize=12, frameon=True, loc="upper right", bbox_to_anchor=(1, 0.95))
 
     # Add horizontal lines for competitive and collusive actions using fancy colors for axs[1]
-    axs[1].axhline(
-        2, color="#d62728", linestyle="--", linewidth=2, label="Competitive action"
-    )
-    axs[1].axhline(
-        12, color="#2ca02c", linestyle="--", linewidth=2, label="Collusive action"
-    )
+    axs[1].axhline(2, color="#d62728", linestyle="--", linewidth=2, label="Competitive action")
+    axs[1].axhline(12, color="#2ca02c", linestyle="--", linewidth=2, label="Collusive action")
     axs[1].axvline(9, color="#888888", linestyle="--", linewidth=2)
     # Update legend for axs[1] to include new lines
     # axs[1].legend(loc="upper left", fontsize=8)
@@ -590,9 +555,7 @@ def plot_forced_dev():
     # plt.subplots_adjust(top=0.93)  # Adjust top margin to accommodate the main title
     # plt.subplots_adjust(bottom=0.06)  # Reduce the bottom margin
     os.makedirs(os.path.join(save_dir, "paper_plots"), exist_ok=True)
-    plt.savefig(
-        os.path.join(save_dir, "paper_plots", f"fig3a_{run_name}_forced_dev.png")
-    )
+    plt.savefig(os.path.join(save_dir, "paper_plots", f"fig3a_{run_name}_forced_dev.png"))
     plt.close()
     return fig, title
 
@@ -624,11 +587,11 @@ def plot_actions_no_deviation():
     agent_colors = ["#1f77b4", "#ff7f0e"]
     for agent_idx, agent in enumerate(agents):
         per_timestep_metrics = eval_log_data
-        data = per_timestep_metrics[f"actions_{agent_idx+1}"][:, 0, :]
+        data = per_timestep_metrics[f"actions_{agent_idx + 1}"][:, 0, :]
         ax.plot(
             x_range,
             data.mean(axis=0),
-            label=f"Agent {agent_idx+1}",
+            label=f"Agent {agent_idx + 1}",
             color=agent_colors[agent_idx],
             linewidth=2,
         )
@@ -644,12 +607,8 @@ def plot_actions_no_deviation():
     ax.set_ylabel("Actions", fontsize=15, labelpad=5)
 
     # Add horizontal lines for competitive and collusive actions using fancy colors
-    ax.axhline(
-        2, color="#d62728", linestyle="--", linewidth=2, label="Competitive action"
-    )
-    ax.axhline(
-        12, color="#2ca02c", linestyle="--", linewidth=2, label="Collusive action"
-    )
+    ax.axhline(2, color="#d62728", linestyle="--", linewidth=2, label="Competitive action")
+    ax.axhline(12, color="#2ca02c", linestyle="--", linewidth=2, label="Collusive action")
     ax.legend(fontsize=12, frameon=True, loc="upper right", bbox_to_anchor=(1, 0.95))
 
     ax.set_xlabel("Timestep", fontsize=15, labelpad=5)
@@ -668,17 +627,13 @@ def plot_actions_no_deviation():
 
 try:
     plot_forced_dev()
-    display_single_plot(
-        os.path.join(save_dir, "paper_plots", f"fig3a_{run_name}_forced_dev.png")
-    )
+    display_single_plot(os.path.join(save_dir, "paper_plots", f"fig3a_{run_name}_forced_dev.png"))
 except Exception as e:
     print(f"Error plotting forced deviation: {e}")
 
 try:
     plot_actions_no_deviation()
-    display_single_plot(
-        os.path.join(save_dir, "paper_plots", f"fig3a_{run_name}_evalep.png")
-    )
+    display_single_plot(os.path.join(save_dir, "paper_plots", f"fig3a_{run_name}_evalep.png"))
 except Exception as e:
     print(f"Error plotting actions: {e}")
 

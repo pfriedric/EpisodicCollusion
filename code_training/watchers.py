@@ -1,8 +1,6 @@
-from functools import partial
-from typing import Any, NamedTuple
+from typing import NamedTuple
 from jaxtyping import Array
-from optax import sgd
-from pyparsing import sgl_quoted_string
+
 from environment.market_env import EnvState
 import jax
 import jax.numpy as jnp
@@ -34,9 +32,7 @@ def marketenv_stats(
 
     ## episodic collusion index, for each parallel env:
     # sum rewards over time axis (ax=1):
-    ag1_episodic_profits = traj1.unnormalized_rewards.sum(
-        axis=1
-    )  # -> [n_outer, n_opp, n_env]
+    ag1_episodic_profits = traj1.unnormalized_rewards.sum(axis=1)  # -> [n_outer, n_opp, n_env]
     ag2_episodic_profits = traj2.unnormalized_rewards.sum(axis=1)
     # collusion index for each episode, should have shape [n_outer, n_opp, n_env]
     ag1_ep_profit_gain_eps = (ag1_episodic_profits - competitive_profits_episode[0]) / (
@@ -102,12 +98,8 @@ def marketenv_stats(
     greedy_actions2_var = greedy_actions2_all_eps_opps.var()
 
     # mean per-timestep prices within episodes
-    prices1_all_envs_eps_opps = env_traj.env_state.env_state.last_prices[
-        :, :, :, :, 0
-    ].mean()
-    prices2_all_envs_eps_opps = env_traj.env_state.env_state.last_prices[
-        :, :, :, :, 1
-    ].mean()
+    prices1_all_envs_eps_opps = env_traj.env_state.env_state.last_prices[:, :, :, :, 0].mean()
+    prices2_all_envs_eps_opps = env_traj.env_state.env_state.last_prices[:, :, :, :, 1].mean()
     prices1_all_eps_opps = env_traj.env_state.env_state.last_prices[:, :, :, :, 0].mean(
         axis=(0, 1, 2)
     )
@@ -122,12 +114,8 @@ def marketenv_stats(
     demands2_all_envs_eps_opps = info_traj["demands"][:, :, :, :, 1].mean()
 
     # mean per-timestep quantities sold
-    quantities_sold1_all_envs_eps_opps = info_traj["quantity_sold"][
-        :, :, :, :, 0
-    ].mean()
-    quantities_sold2_all_envs_eps_opps = info_traj["quantity_sold"][
-        :, :, :, :, 1
-    ].mean()
+    quantities_sold1_all_envs_eps_opps = info_traj["quantity_sold"][:, :, :, :, 0].mean()
+    quantities_sold2_all_envs_eps_opps = info_traj["quantity_sold"][:, :, :, :, 1].mean()
 
     ## mean inventory left at end of episode [:, n_inner=-1, :, :, agent_idx=0], in percent
     inventories1_absolute_means_per_env = env_traj.env_state.env_state.inventories[
@@ -137,12 +125,8 @@ def marketenv_stats(
         :, -1, :, :, 1
     ].mean(axis=(0, 1))
 
-    inventories1_means_per_env = (
-        inventories1_absolute_means_per_env / initial_inventories[0]
-    )
-    inventories2_means_per_env = (
-        inventories2_absolute_means_per_env / initial_inventories[1]
-    )
+    inventories1_means_per_env = inventories1_absolute_means_per_env / initial_inventories[0]
+    inventories2_means_per_env = inventories2_absolute_means_per_env / initial_inventories[1]
     # inventories1_absolute_mean = inventories1_absolute_means_per_env.mean()
     # inventories2_absolute_mean = inventories2_absolute_means_per_env.mean()
     # inventories1_absolute_var = inventories1_absolute_means_per_env.var()
@@ -332,12 +316,10 @@ def marketenv_eval_stats(
 
     # inventory percentage per timestep [T, n_envs, n_opps]
     inventories1 = (
-        env_traj.env_state.env_state.inventories[:, :, :, 0].squeeze()
-        / initial_inventories[0]
+        env_traj.env_state.env_state.inventories[:, :, :, 0].squeeze() / initial_inventories[0]
     )
     inventories2 = (
-        env_traj.env_state.env_state.inventories[:, :, :, 1].squeeze()
-        / initial_inventories[1]
+        env_traj.env_state.env_state.inventories[:, :, :, 1].squeeze() / initial_inventories[1]
     )
 
     # collusion index per timestep
@@ -347,12 +329,8 @@ def marketenv_eval_stats(
     collusion_index2 = (rewards2 - competitive_profits_onestep[1]) / (
         collusive_profits_onestep[1] - competitive_profits_onestep[1]
     )
-    extras1 = jax.tree.map(
-        lambda x: x.squeeze() if isinstance(x, jnp.ndarray) else x, traj1.extras
-    )
-    extras2 = jax.tree.map(
-        lambda x: x.squeeze() if isinstance(x, jnp.ndarray) else x, traj2.extras
-    )
+    extras1 = jax.tree.map(lambda x: x.squeeze() if isinstance(x, jnp.ndarray) else x, traj1.extras)
+    extras2 = jax.tree.map(lambda x: x.squeeze() if isinstance(x, jnp.ndarray) else x, traj2.extras)
     # used to be qvals_1 = traj1.extras["q_vals"].squeeze()  # [T, num_actions]
 
     # all returns: [time_horizon] except qvals: [time_horizon, num_actions]

@@ -1,20 +1,11 @@
-from typing import (
-    Optional,
-    Tuple,
-    Dict,
-    Mapping,
-    NamedTuple,
-    Callable,
-    Union,
-    final,
-)
+from typing import Tuple, Dict
 
 import chex
 import jax
 import jax.numpy as jnp
 from gymnax.environments import environment, spaces
-from jaxtyping import Array, Float, Key, Integer, Bool, Num
-from numpy import dtype, integer, savez_compressed  # used for all Jax arrays
+from jaxtyping import Array, Float, Integer, Num
+from numpy import integer  # used for all Jax arrays
 
 
 @chex.dataclass
@@ -82,9 +73,7 @@ class MarketEnvInfiniteInventoryInfiniteEpisode(environment.Environment):
             )  # Compute sum of utilities to go in denominator, but only for agents that are active
             demands = utilities / (sum_utilities + 1)  # Compute demand for each agent
             scaled_demands = demand_scaling_factor * demands  # scale the demands
-            integer_demands = jnp.floor(
-                scaled_demands
-            )  # floor them to get integer demands
+            integer_demands = jnp.floor(scaled_demands)  # floor them to get integer demands
             return integer_demands
 
         def _step(
@@ -142,9 +131,7 @@ class MarketEnvInfiniteInventoryInfiniteEpisode(environment.Environment):
                 "t": state.t,
             }
             # compute rewards, for each agent it's (price - marginal_cost) * quantity_sold
-            rewards = (
-                new_prices - params.marginal_costs
-            ) * quantities_sold  # shape (num_agents,)
+            rewards = (new_prices - params.marginal_costs) * quantities_sold  # shape (num_agents,)
 
             # info, logging
             info = {
@@ -154,9 +141,7 @@ class MarketEnvInfiniteInventoryInfiniteEpisode(environment.Environment):
             all_obs = tuple([obs for _ in range(num_agents)])
             return all_obs, state, rewards, done, info
 
-        def _reset(
-            key: chex.PRNGKey, params: EnvParams
-        ) -> Tuple[Tuple[Dict, ...], EnvState]:
+        def _reset(key: chex.PRNGKey, params: EnvParams) -> Tuple[Tuple[Dict, ...], EnvState]:
             state = EnvState(
                 inventories=params.initial_inventories.astype(jnp.int32),
                 last_prices=params.initial_prices.astype(jnp.float32),

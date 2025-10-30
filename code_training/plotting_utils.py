@@ -1,5 +1,3 @@
-import jax
-import jax.numpy as jnp
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -26,9 +24,7 @@ def get_training_run_based_collusion_index(
     j = hyperparam_combo
     avg_collusion_index = np.zeros((num_seeds, len(x_axis_long)))
     for agent_idx, agent in enumerate(agents):
-        agent_seed_means = all_env_stats[
-            f"train/collusion_index/mean_player_{agent_idx+1}"
-        ][
+        agent_seed_means = all_env_stats[f"train/collusion_index/mean_player_{agent_idx + 1}"][
             :, j, :
         ]  # shape [seeds, T], slicing jth hyperparam combo
         avg_collusion_index += agent_seed_means
@@ -38,12 +34,8 @@ def get_training_run_based_collusion_index(
     avg_training_collusion_index_per_seed = np.mean(
         avg_collusion_index[:, last_ten_percent_episodes:], axis=1
     )  # [seeds]
-    avg_training_collusion_index_mean = np.mean(
-        avg_training_collusion_index_per_seed
-    )  # scalar
-    avg_training_collusion_index_var = np.var(
-        avg_training_collusion_index_per_seed
-    )  # scalar
+    avg_training_collusion_index_mean = np.mean(avg_training_collusion_index_per_seed)  # scalar
+    avg_training_collusion_index_var = np.var(avg_training_collusion_index_per_seed)  # scalar
 
     return (
         avg_training_collusion_index_per_seed,
@@ -100,7 +92,7 @@ def plot_agent_metrics_shaded(
     (line,) = axs.plot(
         x_axis,
         metric_mean,
-        label=f"Agent {agent_idx+1}",
+        label=f"Agent {agent_idx + 1}",
         linewidth=0.75,
     )
     axs.fill_between(
@@ -143,7 +135,7 @@ def plot_agent_metrics_shaded_selectable_color(
     (line,) = axs.plot(
         x_axis,
         metric_mean,
-        label=f"Agent {agent_idx+1}",
+        label=f"Agent {agent_idx + 1}",
         linewidth=0.75,
         color=agent_color,
     )
@@ -161,9 +153,7 @@ def plot_agent_metrics_indiv_seeds(
     )
     window_size = 10
     metric_mean_ma, ma_x_axis = apply_moving_average(metric_mean, x_axis, window_size)
-    (line,) = axs.plot(
-        ma_x_axis, metric_mean_ma, label=f"Agent {agent_idx+1}", linewidth=0.75
-    )
+    (line,) = axs.plot(ma_x_axis, metric_mean_ma, label=f"Agent {agent_idx + 1}", linewidth=0.75)
     color = line.get_color()
     alpha = 0.05
     num_seeds = agent_seed_means.shape[0]

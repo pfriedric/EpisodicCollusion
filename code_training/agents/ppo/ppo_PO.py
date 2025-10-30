@@ -1,11 +1,9 @@
-from multiprocessing import dummy
 import jax
 from jaxtyping import Array
 from typing import NamedTuple, Tuple, Dict, Any
 import optax
 import haiku as hk
 import jax.numpy as jnp
-from agents.agent import AgentInterface
 from utils import (
     MemoryState,
     TrainingState,
@@ -15,7 +13,6 @@ from utils import (
     float_precision,
 )
 from agents.ppo.networks import make_marketenv_network
-import omegaconf
 import pickle
 
 
@@ -112,9 +109,7 @@ class PPO:
                 obs_limits["last_prices_lower"],
                 obs_limits["last_prices_upper"],
             )
-            new_observation["t"] = rescale_to_zero_one(
-                observation["t"], 0, obs_limits["t_upper"]
-            )
+            new_observation["t"] = rescale_to_zero_one(observation["t"], 0, obs_limits["t_upper"])
             # new_observation["t"] = obs_limits["t_upper"]-observation["t"]
             # new_observation["t"] = rescale_to_zero_one(
             #     new_observation["t"], 0, obs_limits["t_upper"]
@@ -229,9 +224,7 @@ class PPO:
                 )
                 clipped_value_error = target_values - clipped_values
                 clipped_value_loss = clipped_value_error**2
-                value_loss = jnp.mean(
-                    jnp.fmax(unclipped_value_loss, clipped_value_loss)
-                )
+                value_loss = jnp.mean(jnp.fmax(unclipped_value_loss, clipped_value_loss))
             else:
                 value_loss = jnp.mean(unclipped_value_loss)
 
@@ -239,9 +232,7 @@ class PPO:
             # Calculate the new value based on linear annealing formula
             if anneal_entropy == "linear":
                 fraction = jnp.fmax(1 - timesteps / entropy_coeff_horizon, 0)
-                entropy_cost = (
-                    fraction * entropy_coeff_start + (1 - fraction) * entropy_coeff_end
-                )
+                entropy_cost = fraction * entropy_coeff_start + (1 - fraction) * entropy_coeff_end
             elif anneal_entropy == "exponential":
                 decay_rate = (entropy_coeff_end / entropy_coeff_start) ** (
                     1 / entropy_coeff_horizon
@@ -255,9 +246,7 @@ class PPO:
             entropy_loss = -jnp.mean(entropy)
 
             # Total loss is minimized: Minimize value loss (positive); maximize advantages and entropy (hence negative)
-            total_loss = (
-                policy_loss + entropy_cost * entropy_loss + value_loss * value_cost
-            )
+            total_loss = policy_loss + entropy_cost * entropy_loss + value_loss * value_cost
 
             return total_loss, {
                 "loss_total": total_loss,
@@ -318,15 +307,15 @@ class PPO:
 
             # Concatenate all trajectories. Reshape from [num_steps, num_envs, ..]
             # to [num_envs * num_steps,..]
-            # TODO: is this kosher? do we keep episodes together?
             assert len(target_values.shape) > 1
             num_envs = target_values.shape[1]
             num_steps = target_values.shape[0]
             batch_size = num_envs * num_steps
             assert batch_size % num_minibatches == 0, (
-                "Num minibatches must divide batch size. Got batch_size={}"
-                " num_minibatches={}."
-            ).format(batch_size, num_minibatches)
+                f"Num minibatches must divide batch size. Got batch_size={batch_size}"
+                f" num_minibatches={num_minibatches}."
+                f"\n--> In config: ensure that num_minibatches is divisor of time_horizon."
+            )
 
             batch = jax.tree_util.tree_map(
                 lambda x: x.reshape((batch_size,) + x.shape[2:]), trajectories
@@ -343,9 +332,9 @@ class PPO:
                 """Performs model update for a single minibatch."""
                 params, opt_state, timesteps = carry
                 # Normalize advantages at the minibatch level before using them.
-                advantages = (
-                    minibatch.advantages - jnp.mean(minibatch.advantages, axis=0)
-                ) / (jnp.std(minibatch.advantages, axis=0) + 1e-8)
+                advantages = (minibatch.advantages - jnp.mean(minibatch.advantages, axis=0)) / (
+                    jnp.std(minibatch.advantages, axis=0) + 1e-8
+                )
                 gradients, metrics = grad_fn(
                     params,
                     timesteps,
@@ -406,7 +395,6 @@ class PPO:
                 length=num_epochs,
             )
 
-
             metrics = jax.tree_util.tree_map(jnp.mean, metrics)
             metrics["sgd_steps"] = opt_state[1][0]
             metrics["scheduler_steps"] = opt_state[2][0]
@@ -433,9 +421,7 @@ class PPO:
 
             return new_state, new_memory, metrics
 
-        def make_initial_state(
-            key: Any, hidden: jnp.ndarray
-        ) -> Tuple[TrainingState, MemoryState]:
+        def make_initial_state(key: Any, hidden: jnp.ndarray) -> Tuple[TrainingState, MemoryState]:
             """Initialises the training state (parameters and optimiser state).
             Expects unbatched input key (training), returns batched output
             In:
@@ -507,9 +493,7 @@ class PPO:
             _value = jax.lax.expand_dims(_value, [0])  # should be [1, n_envs]
             # need to add final value here
             traj_batch = traj_batch._replace(
-                behavior_values=jnp.concatenate(
-                    [traj_batch.behavior_values, _value], axis=0
-                )
+                behavior_values=jnp.concatenate([traj_batch.behavior_values, _value], axis=0)
             )
             return traj_batch
 
@@ -525,8 +509,7 @@ class PPO:
         self._until_sgd = 0
         self._logger.metrics = {
             "trained": True,
-            # "total_steps": 0,  # TODO: these aren't tracked
-            "sgd_steps": 0,  # TODO: these are tracked, but updating doesn't work (b/c they're not traced?)
+            "sgd_steps": 0,
             "scheduler_steps": 0,
             "loss_total": 0,
             "loss_policy": 0,
@@ -585,9 +568,7 @@ class PPO:
         # therefore, in that case, prepare_batch() discards & overwrites the value estimate to 0
 
         # traj_batch.dones[-1, ...] is the done of the last step in the trajectory and should have shape [num_envs]
-        traj_batch = self._prepare_batch(
-            traj_batch, traj_batch.dones[-1, ...], mem.extras
-        )
+        traj_batch = self._prepare_batch(traj_batch, traj_batch.dones[-1, ...], mem.extras)
 
         state, mem, metrics = self._sgd_step(state, traj_batch)
 
@@ -611,9 +592,7 @@ class PPO:
             pickle.dump(state_data, f)
 
     @classmethod
-    def load_state(
-        cls, filepath: str, network, optimizer: optax.GradientTransformation
-    ):
+    def load_state(cls, filepath: str, network, optimizer: optax.GradientTransformation):
         with open(filepath, "rb") as f:
             state_data = pickle.load(f)
 
@@ -693,15 +672,11 @@ def make_agent(
             agent_args.get("hidden_sizes"),
         )
     else:
-        raise NotImplementedError(
-            f"No ppo network implemented for env {args.get('env_id')}"
-        )
+        raise NotImplementedError(f"No ppo network implemented for env {args.get('env_id')}")
 
     # Optimizer
     transition_steps = (
-        num_iterations
-        * agent_args.get("num_epochs")
-        * agent_args.get("num_minibatches")
+        num_iterations * agent_args.get("num_epochs") * agent_args.get("num_minibatches")
     )
 
     if agent_args.get("lr_scheduling"):
@@ -723,9 +698,7 @@ def make_agent(
         # optimizer = optax.inject_hyperparams(optimizer)(learning_rate=agent_args.learning_rate)
 
     else:
-        scale = optax.inject_hyperparams(optax.scale)(
-            step_size=-agent_args.get("learning_rate")
-        )
+        scale = optax.inject_hyperparams(optax.scale)(step_size=-agent_args.get("learning_rate"))
         optimizer = optax.chain(
             optax.clip_by_global_norm(agent_args.get("max_gradient_norm")),
             optax.scale_by_adam(eps=agent_args.get("adam_epsilon")),

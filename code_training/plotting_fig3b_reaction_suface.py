@@ -5,23 +5,15 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import matplotlib.pyplot as plt
-import yaml
-import pandas as pd
 import glob
-from tabulate import tabulate
 from agents.dqn.dqn import DQN, make_DQN_agent
 from agents.dqn.networks import make_dqn_marketenv_network
 from agents.ppo.ppo import PPO, make_agent
 from agents.ppo.networks import make_marketenv_network
 from environment.market_env import MarketEnv, EnvParams
 import optax
-from mpl_toolkits.mplot3d import Axes3D  # Needed for 3D plotting
 
-from plotting_utils import (
-    apply_moving_average,
-    overall_mean_stdev_from_seed_means_variances,
-    display_single_plot,
-)
+from plotting_utils import display_single_plot
 
 ### Alter this for different runs. Options "DQN", "PPO", "compPPO", "unconstDQN"
 save_dir = "exp/DQN"
@@ -33,9 +25,7 @@ inv_scaling = "dynamic"  # "dynamic"  # the fraction of inventory agents have in
 run_name = save_dir.split("/")[-1]
 plot_dir = os.path.join(save_dir, "reaction_surface_plot")
 
-plot_pattern = os.path.join(
-    plot_dir, f"reaction_surface_plot_t_*_inv_{inv_scaling}.png"
-)
+plot_pattern = os.path.join(plot_dir, f"reaction_surface_plot_t_*_inv_{inv_scaling}.png")
 # check if such plots exist in plot_dir (return True only if one or more plots with that specific pattern is there, using glob)
 if not glob.glob(plot_pattern):
     plot_new = True
@@ -54,7 +44,9 @@ try:
     if isinstance(log_data, tuple):
         if len(log_data) == 2:
             log_data, eval_log_data = log_data
-            forced_deviation_log_data = None  # has shape [num_seeds, num_configs, num_deviations, num_timesteps]
+            forced_deviation_log_data = (
+                None  # has shape [num_seeds, num_configs, num_deviations, num_timesteps]
+            )
         elif len(log_data) == 3:
             log_data, eval_log_data, forced_deviation_log_data = log_data
             forced_deviation_log_data_unstacked = [
@@ -67,9 +59,7 @@ try:
 
     plot_dir = glob.glob(f"{save_dir}/reaction_surface_plot")
     if not plot_dir:
-        print(
-            f"No forced deviation plots directory found in {save_dir}. Proceeding to plot."
-        )
+        print(f"No forced deviation plots directory found in {save_dir}. Proceeding to plot.")
         plot_new = True
     else:
         print(f"Found plot directory: {plot_dir[0]}")
@@ -92,7 +82,7 @@ num_iters = args["num_iters"]
 num_seeds = args["num_seeds"]
 time_horizon = args["time_horizon"]
 num_envs = args["num_envs"]
-agents = [args[f"agent{i+1}"] for i in range(args["num_players"])]
+agents = [args[f"agent{i + 1}"] for i in range(args["num_players"])]
 num_actions = args["num_prices"]
 
 
@@ -120,15 +110,15 @@ print(f"  env used: {args['env_id']}")
 if args["agent_default"] == "DQN":
     print(f"DQN setup:")
     print(
-        f"  LR {args['dqn_default']['learning_rate']} {'annealing to 0' if args['dqn_default']['lr_scheduling'] else 'fixed'} {'over '+str(args['dqn_default']['lr_anneal_duration']*100)+'% of run' if args['dqn_default']['lr_scheduling'] else '(flat)'}"
+        f"  LR {args['dqn_default']['learning_rate']} {'annealing to 0' if args['dqn_default']['lr_scheduling'] else 'fixed'} {'over ' + str(args['dqn_default']['lr_anneal_duration'] * 100) + '% of run' if args['dqn_default']['lr_scheduling'] else '(flat)'}"
     )
     try:
         print(
-            f"  Epsilon anneals {'linearly' if args['dqn_default']['epsilon_anneal_type'] == 'linear' else 'exponentially'} from {args['dqn_default']['epsilon_start']} to {args['dqn_default']['epsilon_finish']} over {args['dqn_default']['epsilon_anneal_duration']*100:.2f}% of run"
+            f"  Epsilon anneals {'linearly' if args['dqn_default']['epsilon_anneal_type'] == 'linear' else 'exponentially'} from {args['dqn_default']['epsilon_start']} to {args['dqn_default']['epsilon_finish']} over {args['dqn_default']['epsilon_anneal_duration'] * 100:.2f}% of run"
         )
     except:
         print(
-            f"  Epsilon anneals linearly from {args['dqn_default']['epsilon_start']} to {args['dqn_default']['epsilon_finish']} over {args['dqn_default']['epsilon_anneal_duration']*100:.2f}% of run"
+            f"  Epsilon anneals linearly from {args['dqn_default']['epsilon_start']} to {args['dqn_default']['epsilon_finish']} over {args['dqn_default']['epsilon_anneal_duration'] * 100:.2f}% of run"
         )
     print(
         f"  buffer size: {args['dqn_default']['buffer_size']}, batch size: {args['dqn_default']['buffer_batch_size']}"
@@ -144,17 +134,17 @@ if args["agent_default"] == "DQN":
 if args["agent_default"] == "PPO":
     print(f"PPO setup:")
     print(
-        f"  LR {args['ppo_default']['learning_rate']} {'annealing to 0' if args['ppo_default']['lr_scheduling'] else 'fixed'} {'over '+str(args['ppo_default']['lr_anneal_duration']*100)+'% of run' if args['ppo_default']['lr_scheduling'] else '(flat)'}"
+        f"  LR {args['ppo_default']['learning_rate']} {'annealing to 0' if args['ppo_default']['lr_scheduling'] else 'fixed'} {'over ' + str(args['ppo_default']['lr_anneal_duration'] * 100) + '% of run' if args['ppo_default']['lr_scheduling'] else '(flat)'}"
     )
     print(f"  discount: {args['ppo_default']['gamma']}")
     print(f"  hidden sizes: {args['ppo_default']['hidden_sizes']}")
     if args["ppo_default"]["anneal_entropy"] == "linear":
         print(
-            f"  entropy coeff {args['ppo_default']['entropy_coeff_start']} annealing to {args['ppo_default']['entropy_coeff_end']} over {args['ppo_default']['entropy_anneal_duration']*100:.2f}% of run"
+            f"  entropy coeff {args['ppo_default']['entropy_coeff_start']} annealing to {args['ppo_default']['entropy_coeff_end']} over {args['ppo_default']['entropy_anneal_duration'] * 100:.2f}% of run"
         )
     if args["ppo_default"]["anneal_entropy"] == "exponential":
         print(
-            f"  entropy coeff annealing from {args['ppo_default']['entropy_coeff_start']} to {args['ppo_default']['entropy_coeff_end']}, hitting the min at {args['ppo_default']['entropy_anneal_duration']*100:.2f}% of run"
+            f"  entropy coeff annealing from {args['ppo_default']['entropy_coeff_start']} to {args['ppo_default']['entropy_coeff_end']}, hitting the min at {args['ppo_default']['entropy_anneal_duration'] * 100:.2f}% of run"
         )
     else:
         print(f"  entropy coeff fixed at {args['ppo_default']['entropy_coeff_start']}")
@@ -186,9 +176,7 @@ env_params = EnvParams(
 )
 
 obs_shape = jax.tree_util.tree_map(lambda x: x.shape, env.observation_space(env_params))
-obs_dtypes = jax.tree_util.tree_map(
-    lambda x: x.dtype, env.observation_space(env_params)
-)
+obs_dtypes = jax.tree_util.tree_map(lambda x: x.dtype, env.observation_space(env_params))
 
 
 if args["agent_default"] == "DQN":
@@ -280,9 +268,7 @@ if args["agent_default"] == "PPO":
         separate=args["ppo_default"]["separate"],
         hidden_sizes=args["ppo_default"]["hidden_sizes"],
     )
-    scale = optax.inject_hyperparams(optax.scale)(
-        step_size=-args["ppo_default"]["learning_rate"]
-    )
+    scale = optax.inject_hyperparams(optax.scale)(step_size=-args["ppo_default"]["learning_rate"])
     optimizer = optax.chain(
         optax.clip_by_global_norm(args["ppo_default"]["max_gradient_norm"]),
         optax.scale_by_adam(eps=args["ppo_default"]["adam_epsilon"]),
@@ -332,9 +318,7 @@ if args["agent_default"] == "PPO":
 
     agent1._state = loaded_agent_1._state
     agent1._mem = loaded_agent_1._mem
-    agent1_params = jax.tree_util.tree_map(
-        lambda x: jnp.squeeze(x, axis=1), agent1._state.params
-    )
+    agent1_params = jax.tree_util.tree_map(lambda x: jnp.squeeze(x, axis=1), agent1._state.params)
     agent1_random_key = jnp.squeeze(agent1._state.random_key, axis=1)
     agent1._state = agent1._state._replace(random_key=agent1_random_key)
     agent1_mem = jax.tree_util.tree_map(lambda x: jnp.squeeze(x, axis=1), agent1._mem)
@@ -358,7 +342,6 @@ if args["agent_default"] == "PPO":
 
 
 def plot_agent_reactions(input_time, inv_scaling, vmin, vmax, agent_id):
-
     # Number of actions available
     num_actions = len(args["possible_prices"])
 
@@ -396,9 +379,7 @@ def plot_agent_reactions(input_time, inv_scaling, vmin, vmax, agent_id):
         last_prices = possible_prices[last_actions]  # Shape: (num_seeds, 2)
 
         # Prepare inventories
-        inventories = jnp.tile(
-            inventories_fixed, (num_seeds, 1)
-        )  # Shape: (num_seeds, 2)
+        inventories = jnp.tile(inventories_fixed, (num_seeds, 1))  # Shape: (num_seeds, 2)
 
         # Prepare time steps
         t = jnp.tile(t_fixed, (num_seeds, 1))  # Shape: (num_seeds, 1)
@@ -434,9 +415,7 @@ def plot_agent_reactions(input_time, inv_scaling, vmin, vmax, agent_id):
                 return agent1._eval_policy(state_i, observation_i, mem_i)
 
             # Vectorize the evaluation over seeds
-            actions, _, _, _ = jax.vmap(eval_policy_single)(
-                agent1_params, observations, mem
-            )
+            actions, _, _, _ = jax.vmap(eval_policy_single)(agent1_params, observations, mem)
 
         # Map actions to prices
         prices = possible_prices[actions]  # Shape: (num_seeds,)
@@ -457,9 +436,7 @@ def plot_agent_reactions(input_time, inv_scaling, vmin, vmax, agent_id):
         last_prices = possible_prices[last_actions]  # Shape: (num_seeds, 2)
 
         # Prepare inventories
-        inventories = jnp.tile(
-            inventories_fixed, (num_seeds, 1)
-        )  # Shape: (num_seeds, 2)
+        inventories = jnp.tile(inventories_fixed, (num_seeds, 1))  # Shape: (num_seeds, 2)
 
         # Prepare time steps
         t = jnp.tile(t_fixed, (num_seeds, 1))  # Shape: (num_seeds, 1)
@@ -494,9 +471,7 @@ def plot_agent_reactions(input_time, inv_scaling, vmin, vmax, agent_id):
                 return agent2._eval_policy(state_i, observation_i, mem_i)
 
             # Vectorize the evaluation over seeds
-            actions, _, _, _ = jax.vmap(eval_policy_single)(
-                agent2_params, observations, mem
-            )
+            actions, _, _, _ = jax.vmap(eval_policy_single)(agent2_params, observations, mem)
 
         # Map actions to prices
         prices = possible_prices[actions]  # Shape: (num_seeds,)
@@ -516,9 +491,7 @@ def plot_agent_reactions(input_time, inv_scaling, vmin, vmax, agent_id):
                 action2 = action2_grid[i, j]
 
                 # Compute the mean reaction price for this action pair
-                mean_price, mean_action = eval_action_pair_ag1(
-                    action1, action2, agent1._state
-                )
+                mean_price, mean_action = eval_action_pair_ag1(action1, action2, agent1._state)
 
                 # Store the mean price in the grid
                 mean_prices_grid[i, j] = mean_price
@@ -532,9 +505,7 @@ def plot_agent_reactions(input_time, inv_scaling, vmin, vmax, agent_id):
                 action2 = action2_grid[i, j]
 
                 # Compute the mean reaction price for this action pair
-                mean_price, mean_action = eval_action_pair_ag2(
-                    action1, action2, agent2._state
-                )
+                mean_price, mean_action = eval_action_pair_ag2(action1, action2, agent2._state)
 
                 # Store the mean price in the grid
                 mean_prices_grid[i, j] = mean_price
@@ -550,15 +521,13 @@ def plot_agent_reactions(input_time, inv_scaling, vmin, vmax, agent_id):
     Z = mean_actions_grid
 
     # Create the surface plot with a more subdued color scheme
-    surf = ax.plot_surface(
-        X, Y, Z, cmap="coolwarm", edgecolor="none", vmin=vmin, vmax=vmax
-    )
+    surf = ax.plot_surface(X, Y, Z, cmap="coolwarm", edgecolor="none", vmin=vmin, vmax=vmax)
     ax.set_xlabel("Agent 1 Previous Action")
     ax.set_ylabel("Agent 2 Previous Action")
     ax.set_zlabel(f"Mean Reaction of Agent {agent_id}")
     title = f"Agent {agent_id} Reaction at Time {input_time}"
     if args["env_id"] == "MarketEnv-v1":
-        title += f", inventories both at {inv_scaling*100:.0f}% of initial value"
+        title += f", inventories both at {inv_scaling * 100:.0f}% of initial value"
     ax.set_title(title)
 
     # Invert the x-axis to mirror it
@@ -603,9 +572,7 @@ def plot_main(eval_metrics, forced_deviation_metrics_unstacked, x_axis, agent_id
                 agent_id=agent_id,
             )
             fig.savefig(
-                os.path.join(
-                    plot_dir, f"reaction_surface_plot_t_{t}_inv_{inv_scaling}.png"
-                )
+                os.path.join(plot_dir, f"reaction_surface_plot_t_{t}_inv_{inv_scaling}.png")
             )
             print(f"Saved plot for t={t}, inv_scaling={inv_scaling}")
 
@@ -628,9 +595,7 @@ def plot_main(eval_metrics, forced_deviation_metrics_unstacked, x_axis, agent_id
                 agent_id=agent_id,
             )
             print(f"Saving plot for t={t}, inv_scaling={inv_scaling_num}")
-            fig.savefig(
-                os.path.join(plot_dir, f"reaction_surface_plot_t_{t}_inv_dynamic.png")
-            )
+            fig.savefig(os.path.join(plot_dir, f"reaction_surface_plot_t_{t}_inv_dynamic.png"))
             plt.close(fig)
     else:
         print(f"inv_scaling was {inv_scaling}, not dynamic or int")
@@ -648,9 +613,7 @@ def display_plots(plot_pattern):
 def load_and_display_plots():
     plot_dir = os.path.join(save_dir, "reaction_surface_plot")
 
-    plot_pattern = os.path.join(
-        plot_dir, f"reaction_surface_plot_t_*_inv_{inv_scaling}.png"
-    )
+    plot_pattern = os.path.join(plot_dir, f"reaction_surface_plot_t_*_inv_{inv_scaling}.png")
     display_plots(plot_pattern)
 
 
@@ -690,9 +653,7 @@ def plot_paper_fig(eval_metrics, forced_deviation_metrics_unstacked, x_axis, age
 
     # Calculate global min and max
     for t in plotting_times:
-        inv_scaling_num = (
-            np.round(1 - t / 20, 2) if inv_scaling == "dynamic" else inv_scaling
-        )
+        inv_scaling_num = np.round(1 - t / 20, 2) if inv_scaling == "dynamic" else inv_scaling
         _, _, mean_actions_grid = plot_agent_reactions(
             t, inv_scaling=inv_scaling_num, vmin=0, vmax=1, agent_id=agent_id
         )
@@ -705,9 +666,7 @@ def plot_paper_fig(eval_metrics, forced_deviation_metrics_unstacked, x_axis, age
         global_max = None
     # Plot for each time step
     for i, t in enumerate(plotting_times):
-        inv_scaling_num = (
-            np.round(1 - t / 20, 2) if inv_scaling == "dynamic" else inv_scaling
-        )
+        inv_scaling_num = np.round(1 - t / 20, 2) if inv_scaling == "dynamic" else inv_scaling
         _, _, Z = plot_agent_reactions(
             t,
             inv_scaling=inv_scaling_num,
@@ -715,9 +674,7 @@ def plot_paper_fig(eval_metrics, forced_deviation_metrics_unstacked, x_axis, age
             vmax=global_max,
             agent_id=agent_id,
         )
-        X, Y = np.meshgrid(
-            np.arange(num_actions), np.arange(num_actions), indexing="ij"
-        )
+        X, Y = np.meshgrid(np.arange(num_actions), np.arange(num_actions), indexing="ij")
         surf = axs[i].plot_surface(
             X, Y, Z, cmap="coolwarm", edgecolor="none", vmin=global_min, vmax=global_max
         )
@@ -759,18 +716,14 @@ def plot_paper_fig(eval_metrics, forced_deviation_metrics_unstacked, x_axis, age
 
     if args["agent_default"] == "PPO":
         # Adjust subplot layout for PPO
-        plt.subplots_adjust(
-            left=0.05, right=0.95, top=0.9, bottom=0.1, wspace=0.1, hspace=0.2
-        )
+        plt.subplots_adjust(left=0.05, right=0.95, top=0.9, bottom=0.1, wspace=0.1, hspace=0.2)
         for ax in axs:
             ax.title.set_position([0.5, 1.05])
 
     # Adjust layout and save
     # plt.tight_layout()
     fig.savefig(
-        os.path.join(
-            paper_plot_dir, f"fig3b_{run_name}_reaction_surface_{agent_id}.png"
-        ),
+        os.path.join(paper_plot_dir, f"fig3b_{run_name}_reaction_surface_{agent_id}.png"),
         dpi=300,
         bbox_inches="tight",
         facecolor="white",
@@ -784,9 +737,7 @@ agent_ids = [1, 2]
 for agent_id in agent_ids:
     plot_paper_fig(eval_log_data, forced_deviation_log_data_unstacked, x_axis, agent_id)
     display_single_plot(
-        os.path.join(
-            paper_plot_dir, f"fig3b_{run_name}_reaction_surface_{agent_id}.png"
-        )
+        os.path.join(paper_plot_dir, f"fig3b_{run_name}_reaction_surface_{agent_id}.png")
     )
 
 # %%

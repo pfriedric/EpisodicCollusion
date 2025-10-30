@@ -1,9 +1,7 @@
-from math import e
 import time
 import logging
 import shutil
 import os
-import sys
 import pickle
 from typing import Dict, Any
 from copy import deepcopy
@@ -80,9 +78,7 @@ def equilibrium_profits(
     for cost_i in marginal_costs:
         profits_nash.append((price_nash - cost_i) * quantity_nash)
         profits_nash_episode.append(profits_nash[-1] * episode_length)
-        profits_monopolistic.append(
-            (price_monopolistic - cost_i) * quantity_monopolistic
-        )
+        profits_monopolistic.append((price_monopolistic - cost_i) * quantity_monopolistic)
         profits_monopolistic_episode.append(profits_monopolistic[-1] * episode_length)
     return (
         profits_nash,
@@ -98,9 +94,6 @@ def calc_nash_price_and_quantity(constraint=1000):
     Manually adjust for now:
     - Unconstrained: 1.471, 470 | reward 221
     - Constrained at (420*T): 1.7588, 420 | reward 318"""
-    # TODO: implement the GNEP solver here. its output is the Nash equilibrium price.
-    # I want this to read from a file of already calc'd prices and only call the solver if this specific setting hasn't been done yet
-    # hardcode the following values: if constraint=420: price_nash=1.7588, quantity_nash=420. if constraint>470: price_nash=1.471, quantity_nash=470
     if constraint > 470:
         price_nash = 1.471
         # quantity_nash = 470
@@ -133,7 +126,6 @@ def calc_nash_price_and_quantity(constraint=1000):
 def calc_monopolistic_price_and_quantity():
     """this will import the GNEP solver and calculate the monopolistic price for that setting
     reward: 337"""
-    # TODO: implement GNEP solver here
     price_monopolistic = 1.925  # Calvano setting placeholder
     quantity_monopolistic = 365
     return price_monopolistic, quantity_monopolistic
@@ -224,9 +216,7 @@ def update_pytree_recursively(cfg, update):
     def update_leaf(cfg_leaf, update_leaf):
         return jnp.where(update_leaf is None, cfg_leaf, update_leaf)
 
-    return jax.tree.map(
-        update_leaf, cfg, update, is_leaf=lambda x: not isinstance(x, dict)
-    )
+    return jax.tree.map(update_leaf, cfg, update, is_leaf=lambda x: not isinstance(x, dict))
 
 
 # modify config: pass --config-name or -cn.
@@ -243,22 +233,17 @@ def main(args):
         args.normalizing_rewards_gamma = None
 
     # get the collusive and competitive price. for now, assumes equal inventory sizes & thus equilibrium prices
+
     args.normalizing_rewards_min, args.normalizing_rewards_max = calc_rewards_range(
         args.which_price_grid, args.initial_inventories[0]
     )
-    price_nash, quantity_nash = calc_nash_price_and_quantity(
-        args.initial_inventories[0]
-    )
+    price_nash, quantity_nash = calc_nash_price_and_quantity(args.initial_inventories[0])
     price_monopolistic, quantity_monopolistic = calc_monopolistic_price_and_quantity()
     # Scale (per-step) initial inventories with time horizon
-    args.initial_inventories = [
-        inv * args.time_horizon for inv in args.initial_inventories
-    ]
+    args.initial_inventories = [inv * args.time_horizon for inv in args.initial_inventories]
 
     # adjust run name
-    args.wandb.name = get_unique_run_name(
-        args.wandb.name, args.wandb.project, args.wandb.entity
-    )
+    args.wandb.name = get_unique_run_name(args.wandb.name, args.wandb.project, args.wandb.entity)
 
     # calc price vector and set it in args:
     if args.possible_prices == None:
@@ -277,10 +262,8 @@ def main(args):
             xi=args.xi,
             which_price_grid=args.which_price_grid,
         )
-    # print(args.possible_prices)
 
     # use the env params to calculate equilibrium profits
-    # calc equilibrium profits
     (
         args.competitive_profits,
         args.competitive_profits_episodetotal,
@@ -313,7 +296,7 @@ def main(args):
     os.environ["HYDRA_FULL_ERROR"] = "0"
     jax.config.update("jax_traceback_filtering", "off")
     # jax.config.update("jax_default_device", jax.devices("cpu")[0])
-    print(f"Jax backend: {jax.lib.xla_bridge.get_backend().platform}")
+    print(f"Jax backend: {jax.extend.backend.get_backend().platform}")
     print(omegaconf.OmegaConf.to_yaml(args))
 
     """Set up main"""
@@ -332,12 +315,8 @@ def main(args):
 
     print(f"num actions: {env.num_actions}")
 
-    obs_shape = jax.tree_util.tree_map(
-        lambda x: x.shape, env.observation_space(env_params)
-    )
-    obs_dtypes = jax.tree_util.tree_map(
-        lambda x: x.dtype, env.observation_space(env_params)
-    )
+    obs_shape = jax.tree_util.tree_map(lambda x: x.shape, env.observation_space(env_params))
+    obs_dtypes = jax.tree_util.tree_map(lambda x: x.dtype, env.observation_space(env_params))
     print(f"obs shape: {obs_shape}")
     print(f"obs dtypes: {obs_dtypes}")
 

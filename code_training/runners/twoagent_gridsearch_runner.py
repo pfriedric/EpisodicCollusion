@@ -1,17 +1,14 @@
-from math import log
-from gym import Env
 from functools import partial
 import jax
 import time
-import os
-import omegaconf
-from jaxtyping import Array, Key
-from typing import Tuple, NamedTuple, Any
+
+from jaxtyping import Array
+from typing import NamedTuple, Any
 import jax.numpy as jnp
 import numpy as np
-from numpy import info
+
 from watchers import marketenv_stats, marketenv_eval_stats
-from utils import Sample, TrainingState, MemoryState, save, load
+from utils import TrainingState, MemoryState
 import wandb
 import optax
 from environment.wrappers import (
@@ -20,8 +17,6 @@ from environment.wrappers import (
     NormalizeDoubleVecReward,
     DummyDoubleVecRewWrapper,
 )
-
-# from jax import profiler
 
 # region RUNNER
 MAX_WANDB_CALLS = 1000
@@ -89,13 +84,9 @@ class TwoAgentGridsearchRunner:
         self.random_key = jax.random.PRNGKey(args["seed"])
         self.save_dir = save_dir
         self.competitive_profits = jnp.array(args["competitive_profits"])
-        self.competitive_profits_episodetotal = jnp.array(
-            args["competitive_profits_episodetotal"]
-        )
+        self.competitive_profits_episodetotal = jnp.array(args["competitive_profits_episodetotal"])
         self.collusive_profits = jnp.array(args["collusive_profits"])
-        self.collusive_profits_episodetotal = jnp.array(
-            args["collusive_profits_episodetotal"]
-        )
+        self.collusive_profits_episodetotal = jnp.array(args["collusive_profits_episodetotal"])
 
         # we don't use num_opps (yet) as it's an opponent shaping feature.
         # but since I'm borrowing a lot of code from them, the observations have a num_opps dimension (always 1 but still)
@@ -103,9 +94,7 @@ class TwoAgentGridsearchRunner:
             # input x: [num_opps, num_envs ...]
             # returns x: [batch_size = n_o*n_e, ...]
             batch_size = args["num_envs"] * args["num_opps"]
-            return jax.tree_util.tree_map(
-                lambda x: x.reshape((batch_size,) + x.shape[2:]), x
-            )
+            return jax.tree_util.tree_map(lambda x: x.reshape((batch_size,) + x.shape[2:]), x)
 
         self.reduce_opp_dim = jax.jit(_reshape_opp_dim)
         self.marketenv_stats = jax.jit(marketenv_stats)
@@ -115,9 +104,7 @@ class TwoAgentGridsearchRunner:
         ## Their un-vmapped versions expect arrays of size [...].
         # VMAP the environment twice: for num_opps and num_envs. Expects rng: [n_o(!), n_e(!), keydim] and params [...]. Returns all_obs, state: [n_o(!), n_e(!), ...]
         env.batch_reset = jax.vmap(env.reset, in_axes=(0, None), out_axes=0)
-        env.batch_reset = jax.jit(
-            jax.vmap(env.batch_reset, in_axes=(0, None), out_axes=0)
-        )
+        env.batch_reset = jax.jit(jax.vmap(env.batch_reset, in_axes=(0, None), out_axes=0))
         # VMAP the step twice: for num_opps and num_envs. Expects for rng, state, actions: [n_o(!), n_e(!), ...] and params [...]. Returns obs, env_state, rewards, done, info: [n_o(!), n_e(!),...]
         env.batch_step = jax.vmap(
             env.step, in_axes=(0, 0, 0, None), out_axes=0
@@ -174,15 +161,13 @@ class TwoAgentGridsearchRunner:
         )  # vmap: num_opps. TrainState(-), obs(+), MemState(+) -> actions(+), TrainState(-), MemState(+)
 
         agent1.batch_eval_policy = jax.jit(
-            jax.vmap(
-                agent1._eval_policy, in_axes=(None, 0, 0), out_axes=(0, None, 0, 0)
-            )
+            jax.vmap(agent1._eval_policy, in_axes=(None, 0, 0), out_axes=(0, None, 0, 0))
         )  # vmap: num_opps. TrainState(-), obs(+), MemState(+) -> actions(+), TrainState(-), MemState(+), extras (+)
 
         agent2.batch_init = jax.vmap(
             agent2.make_initial_state,
             (0, None),
-            0,  # TODO: check if this is correct! in the init below it gets key [n_o(!)] hidden [n_o, n_e, 1] (doesn't matter) ->
+            0,  # in the init below it gets key [n_o(!)] hidden [n_o, n_e, 1] (doesn't matter) ->
         )  # vmap num_opps. rng(+), hidden(-) -> TrainState(+), MemState(+)
         agent2.batch_reset = jax.jit(
             jax.vmap(agent2.reset_memory, (0, None), 0), static_argnums=1
@@ -244,7 +229,6 @@ class TwoAgentGridsearchRunner:
             # a2_rng = rngs[:, :, 2, :] # UNUSED!
             passthrough_rngs = rngs[:, :, 3, :]
 
-
             # get actions for both agents, as each policy expects [batch_size, ...] we use a version that's vmapped once
             # this way the batched version sees [num_opps(!), num_envs,...], so each parallel version sees the expected [num_envs,...]
 
@@ -298,7 +282,6 @@ class TwoAgentGridsearchRunner:
                 r1_rescaled = r1
                 r2_rescaled = r2
 
-
             # save trajectories as Samples (these go into updates)
             traj1 = Sample(
                 obs1,
@@ -340,9 +323,7 @@ class TwoAgentGridsearchRunner:
             """Plays 1 episode, trains agent 2, gets scanned over to produce n_outer episodes
             carry: rngs, agent states, env states"""
             # Sim 1 episode. Scan compiles _inner_rollout, so jax.jit not needed.
-            vals, trajectories = jax.lax.scan(
-                _inner_rollout, carry, None, args["num_inner_steps"]
-            )
+            vals, trajectories = jax.lax.scan(_inner_rollout, carry, None, args["num_inner_steps"])
 
             # unpack vals (last state of episode)
             (
@@ -367,7 +348,7 @@ class TwoAgentGridsearchRunner:
                     1
                 ],  # traj_2 (stacked, class Sample): [n_inner, num_opps(!), num_envs, ...], so slice sees [n_inner, num_envs, ...]
                 obs2,  # [num_opps(!), num_envs, ...] from env.batch_step
-                a2_state,  # ??? [num_opps(!), ...] TODO: is it OK that ag2 batches this? -> Think yes.
+                a2_state,  # [num_opps(!), ...]
                 a2_mem,  # [num_opps(!), num_envs, ...]
             )  # all outputs are [num_opps(!), ...].
 
@@ -396,9 +377,7 @@ class TwoAgentGridsearchRunner:
         ):
             """"""
             # generate vmapped RNG:
-            rngs_split_envs = jax.random.split(
-                _rng_run, args["num_envs"]
-            )  # [num_envs, keydim]
+            rngs_split_envs = jax.random.split(_rng_run, args["num_envs"])  # [num_envs, keydim]
             rngs_split_opponents_envs = jnp.concatenate(
                 [rngs_split_envs] * args["num_opps"]
             )  # ([num_envs, keydim], [num_envs, keydim], ...)->[num_opps*num_envs, keydim] s.t. [o1e1,o1e2; o2e1,o2e2; ...]
@@ -453,7 +432,8 @@ class TwoAgentGridsearchRunner:
             traj_1, traj_2, env_traj, info_traj, a2_metrics = stack
 
             # with profiler.StepTraceAnnotation("ag1_update"):
-            # update outer agent TODO: mem in is [n_o*n_e, 1] but out is [1] this is fine b/c it's never used and immediately reset, resulting in [n_e, 1]
+            # update outer agent
+            # TODO: mem in is [n_o*n_e, 1] but out is [1] -- this is fine b/c it's never used and immediately reset, resulting in [n_e, 1]
             a1_state, _, a1_metrics = agent1.update(
                 reduce_outer_traj(traj_1),  # dim [n_outer*n_inner, n_opps*n_envs, ...]
                 self.reduce_opp_dim(obs1),  # dim [n_opps*n_envs, ...]
@@ -490,9 +470,7 @@ class TwoAgentGridsearchRunner:
                     self.collusive_profits,
                 ),
             )
-            env_stats = jax.tree_util.tree_map(
-                lambda x: x.astype(jnp.float16), env_stats
-            )
+            env_stats = jax.tree_util.tree_map(lambda x: x.astype(jnp.float16), env_stats)
 
             return (
                 env_stats,
@@ -522,12 +500,8 @@ class TwoAgentGridsearchRunner:
                 env_state,
                 env_params,
             ) = carry
-            a1, a1_state, new_a1_mem, a1_extras = agent1.batch_eval_policy(
-                a1_state, obs1, a1_mem
-            )
-            a2, a2_state, new_a2_mem, a2_extras = agent2.batch_eval_policy(
-                a2_state, obs2, a2_mem
-            )
+            a1, a1_state, new_a1_mem, a1_extras = agent1.batch_eval_policy(a1_state, obs1, a1_mem)
+            a2, a2_state, new_a2_mem, a2_extras = agent2.batch_eval_policy(a2_state, obs2, a2_mem)
             (
                 (next_obs1, next_obs2),
                 env_state,
@@ -575,9 +549,7 @@ class TwoAgentGridsearchRunner:
                 env_params,
             ), (traj1, traj2, env_state, info)
 
-        def _eval_rollout(
-            rng_eval, a1_state, a1_mem, a2_state, a2_mem, env_params_eval
-        ):
+        def _eval_rollout(rng_eval, a1_state, a1_mem, a2_state, a2_mem, env_params_eval):
             # result: [num_opps, 1 (num_envs), keydim]
             rngs_eval = jax.random.split(rng_eval, 1)
             rngs_eval = jnp.concatenate([rngs_eval] * args["num_opps"]).reshape(
@@ -616,19 +588,17 @@ class TwoAgentGridsearchRunner:
             (eval_traj1, eval_traj2, eval_env_traj, eval_info_traj) = eval_trajectories
 
             eval_log_data = {}
-            eval_log_data = (
-                jax.tree_util.tree_map(  # takes mean over n_outer, n_opponents
-                    lambda x: x,
-                    self.marketenv_eval_stats(
-                        eval_env_traj,
-                        eval_traj1,
-                        eval_traj2,
-                        eval_info_traj,
-                        env_params_eval.initial_inventories,
-                        self.competitive_profits,
-                        self.collusive_profits,
-                    ),  # result should have shape [T] in all dims
-                )
+            eval_log_data = jax.tree_util.tree_map(  # takes mean over n_outer, n_opponents
+                lambda x: x,
+                self.marketenv_eval_stats(
+                    eval_env_traj,
+                    eval_traj1,
+                    eval_traj2,
+                    eval_info_traj,
+                    env_params_eval.initial_inventories,
+                    self.competitive_profits,
+                    self.collusive_profits,
+                ),  # result should have shape [T] in all dims
             )
             return eval_log_data
 
@@ -655,9 +625,7 @@ class TwoAgentGridsearchRunner:
                 rng_eval = carry  # Carry over the RNG
 
                 # Initialize RNGs for the environment
-                rngs_eval = jax.random.split(
-                    rng_eval, 1
-                )  # [num_opps, 1 (num_envs), keydim]
+                rngs_eval = jax.random.split(rng_eval, 1)  # [num_opps, 1 (num_envs), keydim]
                 rngs_eval = jnp.concatenate([rngs_eval] * args["num_opps"]).reshape(
                     args["num_opps"], 1, -1
                 )
@@ -746,24 +714,18 @@ class TwoAgentGridsearchRunner:
                     # Manually normalize rewards, uses values calculated in main.py from config.
                     if args["normalize_rewards_manually"]:
                         r1_rescaled = (r1 - args["normalizing_rewards_min"]) / (
-                            args["normalizing_rewards_max"]
-                            - args["normalizing_rewards_min"]
+                            args["normalizing_rewards_max"] - args["normalizing_rewards_min"]
                         )
                         r2_rescaled = (r2 - args["normalizing_rewards_min"]) / (
-                            args["normalizing_rewards_max"]
-                            - args["normalizing_rewards_min"]
+                            args["normalizing_rewards_max"] - args["normalizing_rewards_min"]
                         )
                     else:
                         r1_rescaled = r1
                         r2_rescaled = r2
 
                     # Create trajectory samples
-                    traj1 = EvalSample(
-                        obs1, a1, r1_rescaled, r1_unnormalized, a1_extras
-                    )
-                    traj2 = EvalSample(
-                        obs2, a2, r2_rescaled, r2_unnormalized, a2_extras
-                    )
+                    traj1 = EvalSample(obs1, a1, r1_rescaled, r1_unnormalized, a1_extras)
+                    traj2 = EvalSample(obs2, a2, r2_rescaled, r2_unnormalized, a2_extras)
 
                     # Increment time step
                     time_step = time_step + 1
@@ -793,9 +755,7 @@ class TwoAgentGridsearchRunner:
                     args["num_inner_steps"],
                 )
 
-                (eval_traj1, eval_traj2, eval_env_traj, eval_info_traj) = (
-                    eval_trajectories
-                )
+                (eval_traj1, eval_traj2, eval_env_traj, eval_info_traj) = eval_trajectories
 
                 # Collect evaluation data
                 eval_log_data = {}
@@ -881,14 +841,11 @@ class TwoAgentGridsearchRunner:
 
         train_log_data = log_data
 
-
         agents[0]._state, agents[0]._mem = a1_state, a1_mem
         agents[1]._state, agents[1]._mem = a2_state, a2_mem
 
         ### EVAL PART
-        eval_log_data = self.eval_rollout(
-            rng, a1_state, a1_mem, a2_state, a2_mem, env_params
-        )
+        eval_log_data = self.eval_rollout(rng, a1_state, a1_mem, a2_state, a2_mem, env_params)
 
         deviation_times = jnp.arange(self.args["num_inner_steps"])
         ### FORCED DEVIATION PART
@@ -951,7 +908,6 @@ class TwoAgentGridsearchRunner:
 
         logging_loop_time = time.time()
         for i in range(num_iters):
-
             # Some agents don't train every episode. For those, keep track of the most recent training ep's metrics, and which ep it was
             a1_metrics = a1_metrics_transposed[i]
             a2_metrics = a2_metrics_transposed[i]
@@ -971,8 +927,6 @@ class TwoAgentGridsearchRunner:
                 env_stats = jax.tree.map(
                     lambda x: x[i], all_env_stats
                 )  # could also use transpose_metrics_np but this is called less often, it's fine
-
-
 
                 ## print logging (commented out -- no point if we're not live logging anyway)
                 ## if num_iters is large, space out prints to avoid spam (20% speed loss if it's are fast!)
@@ -1024,14 +978,10 @@ class TwoAgentGridsearchRunner:
 
                 # Apply LR retrieval func to agent 1 and 2
                 try:
-                    a1_current_learning_rate = retrieve_learning_rate(
-                        agents[0], a1_metrics
-                    )
+                    a1_current_learning_rate = retrieve_learning_rate(agents[0], a1_metrics)
                     a1_metrics["learning_rate"] = a1_current_learning_rate
 
-                    a2_current_learning_rates = retrieve_learning_rate_vmap(
-                        agents[1], a2_metrics
-                    )
+                    a2_current_learning_rates = retrieve_learning_rate_vmap(agents[1], a2_metrics)
                     a2_current_learning_rates = jnp.tile(
                         a2_current_learning_rates, (self.args["num_outer_steps"], 1)
                     )
@@ -1047,17 +997,12 @@ class TwoAgentGridsearchRunner:
                     # It could happen that there's training and non-training episodes (e.g. DQN), and since the last time we logged,
                     # there wasn't a new training episode. In that case, we don't want to log the (unchanged) agent metrics again.
                     # This is not relevant for PPO: last_logged <= i-1, last_trained = i so always TRUE.
-                    if (
-                        last_trained_metrics_a1
-                        and last_logged_ep_a1 < last_training_ep_a1
-                    ):
+                    if last_trained_metrics_a1 and last_logged_ep_a1 < last_training_ep_a1:
                         # agent 1: metrics []. Averaging over metrics dims
                         flattened_metrics_1 = jax.tree_util.tree_map(
                             lambda x: jnp.mean(x), a1_metrics
                         )
-                        agents[0]._logger.metrics = (
-                            agents[0]._logger.metrics | flattened_metrics_1
-                        )
+                        agents[0]._logger.metrics = agents[0]._logger.metrics | flattened_metrics_1
                         # merging a1_metrics into this before could reset it to False
                         agents[0]._logger.metrics["trained"] = True
                         last_logged_ep_a1 = last_training_ep_a1
@@ -1066,17 +1011,12 @@ class TwoAgentGridsearchRunner:
                         # ensure that DQN watchers don't log this
                         agents[0]._logger.metrics["trained"] = False
 
-                    if (
-                        last_trained_metrics_a2
-                        and last_logged_ep_a2 < last_training_ep_a2
-                    ):
+                    if last_trained_metrics_a2 and last_logged_ep_a2 < last_training_ep_a2:
                         # agent >2: metrics [outer_timesteps, num_opps]. Averaging over num_opps, then summing over outer_timesteps
                         flattened_metrics_2 = jax.tree_util.tree_map(
                             lambda x: jnp.sum(jnp.mean(x, 1)), a2_metrics
                         )
-                        agents[1]._logger.metrics = (
-                            agents[1]._logger.metrics | flattened_metrics_2
-                        )
+                        agents[1]._logger.metrics = agents[1]._logger.metrics | flattened_metrics_2
                         agents[1]._logger.metrics["trained"] = True
                         last_logged_ep_a2 = last_training_ep_a2
                     else:
@@ -1131,6 +1071,7 @@ class TwoAgentGridsearchRunner:
             "start_time": self.start_time,
             "save_dir": self.save_dir,
         }
+        return (children, aux_data)
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):

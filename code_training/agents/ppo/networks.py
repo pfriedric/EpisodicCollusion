@@ -3,12 +3,9 @@ import distrax
 import haiku as hk
 import jax
 import jax.numpy as jnp
-import jmp
-from distrax import Categorical
 from jaxtyping import Array, Integer
 
 
-# region InTheMatrix
 class CategoricalValueHead(hk.Module):
     """Network head that produces a categorical distribution and value."""
 
@@ -163,9 +160,7 @@ def test_PPO():
         "last_actions": -jnp.ones(2),
         "t": jnp.array([1]),
     }
-    dummy_obs = jax.tree_util.tree_map(
-        lambda x: jnp.expand_dims(x, axis=0), dummy_obs
-    )  # batch dim
+    dummy_obs = jax.tree_util.tree_map(lambda x: jnp.expand_dims(x, axis=0), dummy_obs)  # batch dim
     network = make_marketenv_network(num_actions, separate=True, hidden_sizes=[16, 16])
     params = network.init(subkey, dummy_obs)
     print(params)
@@ -179,7 +174,7 @@ def test_PPO():
         observation_rescaled = log_inventories(observation1)
         dist, values = network.apply(params, observation_rescaled)
         actions, log_probs = dist.sample_and_log_prob(seed=subkey, sample_shape=(10,))
-        print(f"sampling from obs: inventory = {10*i}")
+        print(f"sampling from obs: inventory = {10 * i}")
         print(f"actions: {actions}")
         probs = jnp.round(dist.probs, 3)
         print(f"values: {values}, probs: {probs}, mode: {dist.mode()}")

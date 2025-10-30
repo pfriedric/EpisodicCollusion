@@ -1,11 +1,11 @@
-from jaxtyping import Array, Integer
+from jaxtyping import Array
 import jax
 import jax.numpy as jnp
 import optax
 import haiku as hk
 import numpy as np
 import pickle
-from typing import NamedTuple, Mapping, Tuple
+from typing import NamedTuple, Mapping
 import chex
 import wandb
 import sys
@@ -37,9 +37,7 @@ def to_numpy(values):
 class TrainingState(NamedTuple):
     """Training state consists of network parameters, optimiser state, random key, timesteps"""
 
-    params: (
-        hk.Params
-    )  # TODO: change from Haiku to Flax or Equinox. Is a dict of "layer_name": {'bias': Array, 'weight': Array}
+    params: hk.Params  # Is a dict of "layer_name": {'bias': Array, 'weight': Array}
     opt_state: optax.GradientTransformation
     random_key: Array
     timesteps: int
@@ -58,13 +56,16 @@ class Logger:
     def tree_flatten(self):
         children = (self.metrics,)
         aux_data = {}
-        return children, aux_data
+        return (children, aux_data)
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         obj = cls.__new__(cls)
         obj.metrics = children
         return obj
+
+
+jax.tree_util.register_pytree_node(Logger, Logger.tree_flatten, Logger.tree_unflatten)
 
 
 def save(log: chex.ArrayTree, filename: str):

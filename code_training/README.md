@@ -1,28 +1,35 @@
 # Training and plotting pricing agents
 This part of the project uses Python and JAX. We have built on the [Pax: Scalable Opponent Shaping in JAX](https://github.com/ucl-dark/pax/tree/main) repo.
 
-## Requirements
-Install requirements via 
+### Requirements
+Create and activate a virtual environment with `uv` (alternatively e.g. `conda`), then install requirements with `$ uv pip` (if not using `uv`, just `$ pip`):
 
 ```
-pip install -r requirements.txt 
+$ uv venv coll_venv --python 3.10
+$ source coll_venv/bin/activate
+$ uv pip install --no-cache-dir -r requirements.txt
 ```
 
-This defaults to CPU -- use `requirements-gpu.txt` for the GPU version, which uses CUDA.
+This defaults to CPU. Use `requirements-gpu.txt` for the GPU version, which uses CUDA.
 
-## Running experiments
+### Running experiments
 Ensure the config you want is on the top level of the `conf/` directory, then call the main script with:
 
 ```
 $ python main.py -cn CONFIG_NAME
 ```
 
-where CONFIG_NAME is the name of your config, without `.yaml`. E.g. `-cn config_DQN`. The two reference runs in the paper for DQN and PPO use `config_DQN` and `config_PPO` respectively.
+where CONFIG_NAME is the name of your config, without `.yaml`. E.g. `-cn config_DQN`. To test if your setup is working, you can run the debug scripts (run in 100seconds on a M1 Max CPU)
 
-The run results are saved to a folder in `exp/`, depending on the config.
+```
+$ python main.py -cn config_PPO_debug
+$ python main.py -cn config_DQN_debug
+```
 
-## Plotting
-To plot, use the plotting scripts. They use VSCode's functionality of using cells in a .py file, so if you don't want to use jupyter, remove any occurence of `# %%` in the plotting scripts.
+The run results are saved to a folder in `exp/`.
+
+### Plotting
+To plot, use the plotting scripts. They use VSCode's functionality of using cells in a .py file, so you can run them as a notebook (running them as a script isn't tested).
 
 At the top of the plotting script, directly below the imports, adjust the `save_dir` string to the run that you want to plot. E.g., if the run was saved to `exp/compPPO`, that should be the `save_dir`. 
 

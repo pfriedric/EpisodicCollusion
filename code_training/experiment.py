@@ -1,6 +1,4 @@
-from datetime import datetime
 import os
-from runners.twoagent_rl_calvano_runner import CalvanoTwoAgentRLRunner
 import wandb
 import omegaconf
 import jax
@@ -11,15 +9,9 @@ from environment.market_env_infinite_inventory import MarketEnvInfiniteInventory
 from environment.market_env_infinite_inventory_no_resets import (
     MarketEnvInfiniteInventoryInfiniteEpisode,
 )
-from environment.in_the_matrix import InTheMatrix
-from environment.in_the_matrix import EnvParams as InTheMatrixParams
-from runners.eval_runner import EvalRunner
-from runners.twoagent_rl_runner import TwoAgentRLRunner
-from runners.twoagent_rl_calvano_runner import CalvanoTwoAgentRLRunner
+
 from runners.twoagent_gridsearch_runner import TwoAgentGridsearchRunner
-from runners.twoagent_gridsearch_runner_no_logging import (
-    TwoAgentGridsearchNoLoggingRunner,
-)
+
 from agents.ppo.ppo import make_agent
 from agents.dqn.dqn import make_DQN_agent
 
@@ -58,9 +50,7 @@ def global_setup(args):
             name=str(args.wandb.name),
             mode=str(args.wandb.mode),
             tags=args.wandb.tags,
-            config=omegaconf.OmegaConf.to_container(
-                args, resolve=True, throw_on_missing=True
-            ),  # type: ignore
+            config=omegaconf.OmegaConf.to_container(args, resolve=True, throw_on_missing=True),  # type: ignore
             settings=wandb.Settings(code_dir="."),
         )
         print("run id", run.id)
@@ -102,9 +92,7 @@ def env_setup(args, logger=None):
             possible_prices=jnp.array(
                 omegaconf.OmegaConf.to_container(args.possible_prices, resolve=True)
             ),
-            qualities=jnp.array(
-                omegaconf.OmegaConf.to_container(args.qualities, resolve=True)
-            ),
+            qualities=jnp.array(omegaconf.OmegaConf.to_container(args.qualities, resolve=True)),
             marginal_costs=jnp.array(
                 omegaconf.OmegaConf.to_container(args.marginal_costs, resolve=True)
             ),
@@ -124,18 +112,6 @@ def env_setup(args, logger=None):
             logger.info(
                 f"Environment: {env.name} | Episode length: {args.time_horizon} | Num players: {args.num_players} | Prices between: {args.min_price} and {args.max_price} | Num price steps: {args.num_prices} | Initial inventories: {args.initial_inventories} | Initial prices: {args.initial_prices} | Initial actions: {args.initial_actions} | Qualities: {args.qualities} | Marginal costs: {args.marginal_costs} | Horizontal diff: {args.horizontal_diff} | Demand scaling factor: {args.demand_scaling_factor}"
             )
-    elif args.env_id == "InTheMatrix":
-        payoff = jnp.array(args.payoff)
-        env_params = InTheMatrixParams(payoff_matrix=payoff, freeze_penalty=args.freeze)
-        env = InTheMatrix(
-            num_inner_steps=args.num_inner_steps,
-            num_outer_steps=args.num_outer_steps,
-            fixed_coin_location=args.fixed_coins,
-        )
-        if logger:
-            logger.info(
-                f"Env Type: InTheMatrix | Inner Episode Length: {args.num_inner_steps}"
-            )
     else:
         raise ValueError(f"Unknown env id {args.env_id}")
     return env, env_params
@@ -143,23 +119,9 @@ def env_setup(args, logger=None):
 
 def runner_setup(args, env, agents, save_dir, logger):
     """Set up the runner for the experiment."""
-    # TODO: implement runner!
-    if args.get("runner") == "eval":
-        logger.info("Evaluating with EvalRunner")
-        return EvalRunner(agents, env, args)
-
-    elif args.get("runner") == "rl":
-        logger.info("Training with two player RL Runner")
-        return TwoAgentRLRunner(agents, env, save_dir, args)
-    elif args.get("runner") == "rl-calvano":
-        logger.info("Training with two player RL Runner, infinite game w/ memory")
-        return CalvanoTwoAgentRLRunner(agents, env, save_dir, args)
-    elif args.get("runner") == "rl-gridsearch":
+    if args.get("runner") == "rl-gridsearch":
         logger.info("Gridsearch with two player RL Runner")
         return TwoAgentGridsearchRunner(agents, env, save_dir, args)
-    elif args.get("runner") == "rl-gridsearch-no-logging":
-        logger.info("Gridsearch with two player RL Runner, no logging")
-        return TwoAgentGridsearchNoLoggingRunner(agents, env, save_dir, args)
     else:
         raise ValueError(f"Unknown runner type {args.get('runner')}")
 
@@ -173,12 +135,8 @@ def agent_setup(args, env, env_params, logger):
         or args.get("env_id") == "MarketEnv-InfiniteInventoryInfiniteEpisode"
         or args.get("env_id") == "InTheMatrix"
     ):
-        obs_shape = jax.tree_util.tree_map(
-            lambda x: x.shape, env.observation_space(env_params)
-        )
-        obs_dtypes = jax.tree_util.tree_map(
-            lambda x: x.dtype, env.observation_space(env_params)
-        )
+        obs_shape = jax.tree_util.tree_map(lambda x: x.shape, env.observation_space(env_params))
+        obs_dtypes = jax.tree_util.tree_map(lambda x: x.dtype, env.observation_space(env_params))
         # print(obs_shape)
     num_actions = env.num_actions
 
@@ -192,9 +150,7 @@ def agent_setup(args, env, env_params, logger):
         player_key = f"ppo{player_id}"
         player_args = args.get(player_key, default_player_args)
         if player_args is None:
-            raise ValueError(
-                f"No args found for player {player_key} and no default set"
-            )
+            raise ValueError(f"No args found for player {player_key} and no default set")
 
         num_iterations = args.get("num_iters")
         if player_id == 1 and args.get("env_type") == "meta":
@@ -214,9 +170,7 @@ def agent_setup(args, env, env_params, logger):
         player_key = f"dqn{player_id}"
         player_args = args.get(player_key, default_player_args)
         if player_args is None:
-            raise ValueError(
-                f"No args found for player {player_key} and no default set"
-            )
+            raise ValueError(f"No args found for player {player_key} and no default set")
 
         num_iterations = args.get("num_iters")
         if player_id == 1 and args.get("env_type") == "meta":
@@ -258,9 +212,7 @@ def agent_setup(args, env, env_params, logger):
 
     num_players = args.get("num_players")
     default_agent = args.get("agent_default", None)
-    agent_strategies = [
-        args.get(f"agent{i}", default_agent) for i in range(1, num_players + 1)
-    ]
+    agent_strategies = [args.get(f"agent{i}", default_agent) for i in range(1, num_players + 1)]
     # Check that all strategies are valid
     for strategy in agent_strategies:
         assert strategy in strategies

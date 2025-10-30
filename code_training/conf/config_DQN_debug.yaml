@@ -1,0 +1,182 @@
+hydra:
+  run:
+    dir: .
+  sweep:
+    dir: .
+    subdir: .
+  job_logging:
+    root:
+      level: INFO
+  sweeper:
+    params:
+      ++seed: range(1,10)
+# Global vars
+seed: 0 
+num_seeds: 2
+save_dir: "./exp/${wandb.group}/${wandb.name}"
+save: True
+save_interval: 10000
+debug: False
+
+shuffle_players: False
+agent1_roles: 1
+agent2_roles: 1 # make agent 2 assume multiple roles in an n-player game
+agent2_reset_interval: 1 # reset agent 2 every rollout
+
+# Agents
+agent_default: 'DQN'
+agent1: 'DQN'
+agent2: 'DQN'
+
+# Environment
+# env_id: InTheMatrix, 
+# MarketEnv-v1: full model. resets states at end of ep.
+# MarketEnv-InfiniteInventoryEpisodic: doesn't decrement inventory. resets states at end of ep., 
+# MarketEnv-InfiniteInventoryInfiniteEpisode (..._no_resets.py): doesn't decrement inventory. doesn't reset states at end of ep. (infinitely repeated game)
+env_id: MarketEnv-v1 # MarketEnv-v1 # MarketEnv-InfiniteInventoryEpisodic
+env_type: sequential
+num_players: 2
+time_horizon: 20 # this determines dones
+min_price: # if possible_prices empty: this is overwritten by possible_prices_func
+max_price: # if possible_prices empty: this is overwritten by possible_prices_func
+num_prices: 15 # Number of prices. N-1 steps in the interval. This now feeds into MarketEnv's num_actions (which determines the agent dist's!)
+xi: 0.2 # 0.2307692308 # If want p[k]=N, p[end-k]=M: set xi := k/(N-1-2k), so for k=1: 1/(N-3). Determines how far below nash / above collusive the prices are. 0: price[0]=nash, price[-1]=comp. 
+possible_prices: # leave empty to have it be determined as [p_N - xi*(p_M-p_N), p_M + xi*(p_M-p_N)]. otherwise [1.0, 1.1, 1.2]
+qualities: [2, 2]
+marginal_costs: [1, 1]
+horizontal_diff: 0.25
+demand_scaling_factor: 1000
+initial_inventories: [440, 440] # this is per single timestep! automatically scaled to time horizon. coll: 365, monop: 470. good value between: 420.
+initial_prices: [1, 1]
+initial_actions: [-1, -1]
+which_price_grid: "constrained" # which equilibria is the price range's width based on? "unconstrained" or "constrained"
+competitive_action: # filled in main.py
+competitive_price: # filled in main.py
+competitive_profits: # filled in main.py
+competitive_profits_episodetotal: # filled in main.py
+collusive_action: # filled in main.py
+collusive_price: # filled in main.py
+collusive_profits: # filled in main.py
+collusive_profits_episodetotal: # filled in main.py
+
+# num: 100 (3/97), xi: 0.1265822785. num: 15 (3/12), xi: 0.375. num: 20 (3/17), xi: 0.2307692308
+
+# Runner
+runner: rl-gridsearch
+# runner: rl (resets env after every train), eval, rl-calvano (doesn't reset env->infinite episode)
+# rl-gridsearch: experimental, vmapped loop (no logging atm)
+
+# Training hyperparameters
+# env_batch_size = num_envs
+num_envs: 1
+num_opps: 1 # !!! IF >1: !!! DQN buffer for agent 1 must change add_batch_size to num_envs * num_opps 
+
+### !!! IF YOU SET THIS TO >1 YOU HAVE TO IMPLEMENT env.step() RETURNING RESET STATES IF DONE (or reset the env at start of outer loop?)!!! otherwise you feed non-reset states back into first episode of inner loop.
+num_outer_steps: 1 # 1 determines episode length (# of steps ran). =1 makes it symmetric. Note that LR scheduling is not symmetric if num_outer_steps > 1
+### !!! ###
+num_inner_steps: # filled by main. SAME AS TIME_HORIZON. Impacts: buffer_size, epsilon_anneal_time
+num_iters: 2000 #DQN: 100000. PPO: 
+
+# !! if normalize_obs on: go into ppo.py and change rescale_observation to not do anything.
+normalize_obs: False # my fancy normalization class isn't working as well as just scaling prices to [0,1], oh well
+normalize_rewards_wrapper: False # PPO already normalizes advantages, so use this only for DQN.
+normalize_rewards_manually: True # this normalizes in the runner. default method is 0-1 to the range (lowest, highest) possible rewards in the chosen price grid of constrained agent 1.
+normalizing_rewards_min: # filled in by main.py
+normalizing_rewards_max: # filled in by main.py
+normalizing_rewards_gamma: # filled in by main.py (:= dqn_default.discount). discount rate for normalizing rewards
+clip_rewards: False
+reward_clipping_limit: # leave empty for 10000000 (or so)
+
+# Useful information
+# batch_size = num_envs * num_inner_steps
+# batch_size % num_minibatches == 0 must hold
+
+# PPO learner params:
+# MarketEnv
+ppo_default:
+  num_minibatches: 4 # this must be a divisor of batch_size (= num_envs * num_inner_steps) # eg env=4096, T=5, minis=32
+  num_epochs: 20 # 20 for coll. try 5, 20, 40
+  gamma: 1 # 0.99 # discount rate
+  gae_lambda: 0.95
+  ppo_clipping_epsilon: 0.2
+  value_coeff: 0.5
+  clip_value: True
+  max_gradient_norm: 0.5
+  ## ENTROPY: the smaller this is, the less exploration happens. if convergence already there: make it smaller so you don't jump out ##
+  anneal_entropy: "exponential" # 'exponential' and 'linear' anneal from start value to finish value over anneal_duration fraction of num_iters
+  entropy_coeff_start: 0.01 # this shouldn't be too large! tune until similar OoM as policy/value.
+  entropy_anneal_duration: 0.75 # fraction of num_iters until you hit 0
+  entropy_coeff_horizon:  # keep this roughly at num_iters?
+  entropy_coeff_end: 0.0001
+  entropy_clipping: True # clips entropy to the finish value
+  lr_scheduling: False
+  learning_rate: 0.001 # with scheduling, set LR=1 to go from 1 downward. 3e-4 aka Karpathy's number
+  adam_epsilon: 1e-5 # default 1e-5
+  with_memory: True
+  hidden_sizes: [64, 64]
+  separate: True
+  with_cnn: False
+
+dqn_default:
+  max_gradient_norm: 25 # PPO: 0.5, jaxmarl: 25
+  adam_epsilon: 0.001 # jaxmarl: 0.001
+  learning_rate: 0.001 # jaxmarl: 5e-3, purejaxrl: 2.5e-4
+  lr_scheduling: False # if True: anneals from learning_rate to 0 over entire run. if False: uses fixed learning_rate. purejaxrl: 2.5e-4, jaxmarl: 
+  lr_anneal_duration: 1 # this is the fraction within [initial_explo_eps, final_ep] so e.g. 0.5 isn't exactly 50% of the training run! it's misaligned with explo epsilon.
+  buffer_size: 200000 # No. of transitions the buffer can store (adds n_envs * num_inner steps to buffer per rollout)
+  buffer_batch_size: 64 # No. of sampled transitions per buffer.sample(). jaxmarl: 32, purejaxrl: 128
+  discount: 1 # jaxmarl: 0.9, purejaxrl: 0.99. flows into TD target.
+  epsilon_start: 1 # start value of epsilon annealing. jaxmarl: 0.1
+  epsilon_finish: 0.015 # end value of epsilon annealing. jaxmarl: 0.05
+  epsilon_anneal_duration: 1 # the fraction of num_iters over which epsilon anneals from epsilon_start to epsilon_finish
+  epsilon_anneal_time:  # filled in by main.py. increments by n_envs every time policy() is called. so this number should be chosen in number of samples the agent experiences, e.g. = n_iters * n_outer(=1) * n_inner(=T) * n_envs
+  epsilon_anneal_type: "exponential" # "linear" or "exponential"
+  epsilon_clipping: False # clips epsilon to the finish value
+  polyak_tau: 1 # Polyak averaging of target network update: target:= tau*new + (1-tau)*old. purejaxrl: 1
+  # the following 3 vars are used every time update() is called, incremented by 1
+  initial_exploration_episodes: 1000 # purejaxrl: 10k. try to just set this to "as soon as the buffer is full". =buffer_size/(num_envs*time_horizon)
+  training_interval_episodes: 4 # 1==every rollout
+  target_update_interval_episodes: 200 # 1==every rollout. jaxmarl: every 200 main updates. purejaxrl: every 500 train_state.timesteps (actions taken)
+  hidden_sizes: [64, 64]
+
+# Logging setup
+wandb:
+  entity: "uspace"
+  tags: 'test'
+  project: 'marl-col'  
+  group: 'DQN' #'tests-two-naive-agents'
+  name: run-seed-${seed}
+  mode: online
+  log: False
+
+# !!! things you cannot gridsearch over:
+# (only if LR annealed!): dqn_default/training_interval_episodes. issue b/c for LR scheduler, num_transitions becomes traced
+# buffer size; buffer batch size
+# initial exploration episodes
+# ppo: num_epochs (try 5, 10, 20), num_minibatches (try 1, 5, 10, 20)
+gridsearch:
+  # seed: [0, 2, 4, 6]
+  time_horizon: [20] # [5, 20, 50, 100, 200]
+  # dqn_default:
+    # target_update_interval_episodes: [100, 200]
+    # initial_exploration_episodes: [500]
+    # epsilon_finish: [0.015, 0.005] #, 0.01, 0.005]
+    # epsilon_finish: [0.3, 0.015]
+    # training_interval_episodes: [2, 5, 25, 50] #, 4, 8, 10]
+    # learning_rate: [0.005, 0.004, 0.003, 0.002, 0.001, 0.0005] #, 5e-4, 2.5e-4, 1e-4] #, 1e-4] #[1e-3, 2.5e-4] # [2.5e-4, 1e-3] # [2.5e-4, 1e-4, 1e-3] # [1e-3, 2.5e-4, 5e-4]
+    # discount: [0.99] #, 0.999]
+  #   epsilon_anneal_time: # try half the training run
+  #   hidden_sizes: # [[32], [64, 64], [256, 256]]
+  # ppo_default:
+    # num_minibatches: [5, 10, 20]
+    # learning_rate: [5e-4, 2.5e-4] # [1e-3, 2.5e-4, 1e-4]
+    # entropy_coeff_start: [0.03, 0.015]
+    # entropy_coeff_end: [0.0001, 1e-6]
+  #   hidden_sizes: # [[32], [64, 64], [256, 256]]
+  # batch_size: [32, 64, 128]
+  # num_minibatches: [5, 10, 20]
+  # num_epochs: [5, 10, 20]
+  # gamma: [0.9, 0.99, 0.999]
+  # gae_lambda: [0.9, 0.99, 0.999]
+  # initial_inventories: [[1000, 1000], [440, 440], [420, 420]]
+  

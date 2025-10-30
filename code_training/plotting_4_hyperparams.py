@@ -1,28 +1,17 @@
 # %%
 import pickle
 import os
-import jax
-import jax.numpy as jnp
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-import yaml
-import pandas as pd
 import glob
-from tabulate import tabulate
 from utils import flatten_dict
 from typing import Dict, Any
 
-from plotting_utils import (
-    apply_moving_average,
-    overall_mean_stdev_from_seed_means_variances,
-    display_single_plot,
-)
+from plotting_utils import display_single_plot
 
 ### Alter this for different runs. Options "DQN", "PPO"
 DQN_or_PPO = "DQN"
-
-
 
 plot_new = True
 gen_mean_p = 0.5
@@ -102,17 +91,15 @@ except Exception as e:
     ent_exists_log_data = False
     ent_dir = ""
 
-eps_log_data, eps_update_dict, eps_args, eps_exists_log_data = (
-    retrieve_log_data_from_save_dir(eps_dir)
+eps_log_data, eps_update_dict, eps_args, eps_exists_log_data = retrieve_log_data_from_save_dir(
+    eps_dir
 )
-lr_log_data, lr_update_dict, lr_args, lr_exists_log_data = (
-    retrieve_log_data_from_save_dir(lr_dir)
-)
+lr_log_data, lr_update_dict, lr_args, lr_exists_log_data = retrieve_log_data_from_save_dir(lr_dir)
 trainint_log_data, trainint_update_dict, trainint_args, trainint_exists_log_data = (
     retrieve_log_data_from_save_dir(trainint_dir)
 )
-ent_log_data, ent_update_dict, ent_args, ent_exists_log_data = (
-    retrieve_log_data_from_save_dir(ent_dir)
+ent_log_data, ent_update_dict, ent_args, ent_exists_log_data = retrieve_log_data_from_save_dir(
+    ent_dir
 )
 
 
@@ -147,9 +134,7 @@ def rename_hyperparam(key):
 
 
 def plot_hyperparam_boxplots(all_env_stats, param, param_values, param_args):
-    log_interval = max(
-        param_args["num_iters"] // 1000, 5 if param_args["num_iters"] > 1000 else 1
-    )
+    log_interval = max(param_args["num_iters"] // 1000, 5 if param_args["num_iters"] > 1000 else 1)
     x_axis = np.arange(0, param_args["num_iters"], log_interval)
     last_ten_percent_episodes = param_args["num_iters"] // 10
     # print(f"last_ten_percent_episodes: {last_ten_percent_episodes}")
@@ -169,10 +154,8 @@ def plot_hyperparam_boxplots(all_env_stats, param, param_values, param_args):
         )
         for agent_idx in range(param_args["num_players"]):
             agent_profit_gains_seeds_timesteps[:, agent_idx, :] = all_env_stats[
-                f"train/collusion_index/mean_player_{agent_idx+1}"
-            ][
-                :, j, :
-            ]  # [seeds, T]
+                f"train/collusion_index/mean_player_{agent_idx + 1}"
+            ][:, j, :]  # [seeds, T]
 
         coll_idx_seeds_timesteps_arith = agent_profit_gains_seeds_timesteps.mean(
             axis=1
@@ -189,12 +172,8 @@ def plot_hyperparam_boxplots(all_env_stats, param, param_values, param_args):
         )
 
         # Using prices as mean over episode. shape [seeds, T]
-        agent1_prices = all_env_stats[f"train/all_envs/mean_action/price_player_1"][
-            :, j, :
-        ]
-        agent2_prices = all_env_stats[f"train/all_envs/mean_action/price_player_2"][
-            :, j, :
-        ]
+        agent1_prices = all_env_stats[f"train/all_envs/mean_action/price_player_1"][:, j, :]
+        agent2_prices = all_env_stats[f"train/all_envs/mean_action/price_player_2"][:, j, :]
 
         quotient_price_diff = np.abs(agent1_prices - agent2_prices) / (
             param_args["collusive_price"] - param_args["competitive_price"]
@@ -266,9 +245,7 @@ def plot_hyperparam_boxplots(all_env_stats, param, param_values, param_args):
     title = f"Comparisons for {rename_hyperparam(param)}. Distribution over {param_args['num_seeds']} seeds."
     plt.suptitle(title)
     plt.savefig(os.path.join(save_dir, f"{rename_hyperparam(param)}_boxplots.png"))
-    print(
-        f"Saved plot to {os.path.join(save_dir, f'{rename_hyperparam(param)}_boxplots.png')}"
-    )
+    print(f"Saved plot to {os.path.join(save_dir, f'{rename_hyperparam(param)}_boxplots.png')}")
     plt.close()
     # plt.show()
 
@@ -360,8 +337,8 @@ def gather_spread_data(base_dir, param):
     for subdir in os.listdir(base_dir):
         full_path = os.path.join(base_dir, subdir)
         if os.path.isdir(full_path):
-            log_data, update_dict, args, exists_log_data = (
-                retrieve_log_data_from_save_dir(full_path)
+            log_data, update_dict, args, exists_log_data = retrieve_log_data_from_save_dir(
+                full_path
             )
             if exists_log_data:
                 if param == "inventory":
@@ -475,9 +452,7 @@ else:
 
 try:
     num_minibatches_base_dir = f"exp/fig4_{DQN_or_PPO}_mb_multirun"
-    num_minibatches_data = gather_spread_data(
-        num_minibatches_base_dir, "num_minibatches"
-    )
+    num_minibatches_data = gather_spread_data(num_minibatches_base_dir, "num_minibatches")
 except Exception as e:
     num_minibatches_data = None
     print(f"Couldn't find minibatches data {e}")
@@ -501,9 +476,7 @@ if num_minibatches_data:
     for i, num_minibatches in enumerate(num_minibatches_values):
         log_data, _, _ = num_minibatches_data[num_minibatches]
         for key in num_minibatches_all_env_stats:
-            num_minibatches_all_env_stats[key][:, i, :] = log_data[0][key].squeeze(
-                axis=1
-            )
+            num_minibatches_all_env_stats[key][:, i, :] = log_data[0][key].squeeze(axis=1)
 
     # Plot the num_minibatches hyperparameter
     # plot_hyperparam_boxplots(
@@ -606,9 +579,7 @@ os.makedirs(paper_dir, exist_ok=True)
 
 
 def plot_paper_boxplots(all_env_stats, param, param_values, param_args):
-    log_interval = max(
-        param_args["num_iters"] // 1000, 5 if param_args["num_iters"] > 1000 else 1
-    )
+    log_interval = max(param_args["num_iters"] // 1000, 5 if param_args["num_iters"] > 1000 else 1)
     x_axis = np.arange(0, param_args["num_iters"], log_interval)
     last_ten_percent_episodes = param_args["num_iters"] // 10
 
@@ -626,7 +597,7 @@ def plot_paper_boxplots(all_env_stats, param, param_values, param_args):
         )
         for agent_idx in range(param_args["num_players"]):
             agent_profit_gains_seeds_timesteps[:, agent_idx, :] = all_env_stats[
-                f"train/collusion_index/mean_player_{agent_idx+1}"
+                f"train/collusion_index/mean_player_{agent_idx + 1}"
             ][:, j, :]
 
         coll_idx_seeds_timesteps_gen = generalized_mean(
@@ -638,12 +609,8 @@ def plot_paper_boxplots(all_env_stats, param, param_values, param_args):
         )
 
         # Using prices as mean over episode. shape [seeds, T]
-        agent1_prices = all_env_stats[f"train/all_envs/mean_action/price_player_1"][
-            :, j, :
-        ]
-        agent2_prices = all_env_stats[f"train/all_envs/mean_action/price_player_2"][
-            :, j, :
-        ]
+        agent1_prices = all_env_stats[f"train/all_envs/mean_action/price_player_1"][:, j, :]
+        agent2_prices = all_env_stats[f"train/all_envs/mean_action/price_player_2"][:, j, :]
 
         # Metric 1: convergence vs dispersion.
         quotient_price_diff = np.abs(agent1_prices - agent2_prices) / (
@@ -655,9 +622,7 @@ def plot_paper_boxplots(all_env_stats, param, param_values, param_args):
 
         # Add boxplots to each subplot with wider boxes
         box_width = 0.3
-        axs[0].boxplot(
-            convergence_vs_dispersion_metric_per_seed, positions=[j], widths=box_width
-        )
+        axs[0].boxplot(convergence_vs_dispersion_metric_per_seed, positions=[j], widths=box_width)
         axs[1].boxplot(coll_idx_per_seed_gen, positions=[j], widths=box_width)
 
     # Set x-ticks and labels
@@ -731,9 +696,7 @@ def plot_paper_boxplots_fancy(all_env_stats, param, param_values, param_args):
     plt.rcParams["ytick.direction"] = "out"
     plt.rcParams["axes.prop_cycle"] = plt.cycler(color=["#1f77b4", "#ff7f0e"])
 
-    log_interval = max(
-        param_args["num_iters"] // 1000, 5 if param_args["num_iters"] > 1000 else 1
-    )
+    log_interval = max(param_args["num_iters"] // 1000, 5 if param_args["num_iters"] > 1000 else 1)
     last_ten_percent_episodes = param_args["num_iters"] // 10
 
     # Set up a plot with 2 subplots, much narrower horizontally
@@ -753,7 +716,7 @@ def plot_paper_boxplots_fancy(all_env_stats, param, param_values, param_args):
         )
         for agent_idx in range(param_args["num_players"]):
             agent_profit_gains_seeds_timesteps[:, agent_idx, :] = all_env_stats[
-                f"train/collusion_index/mean_player_{agent_idx+1}"
+                f"train/collusion_index/mean_player_{agent_idx + 1}"
             ][:, j, :]
 
         coll_idx_seeds_timesteps_gen = generalized_mean(
@@ -764,12 +727,8 @@ def plot_paper_boxplots_fancy(all_env_stats, param, param_values, param_args):
             coll_idx_seeds_timesteps_gen[:, -last_ten_percent_episodes:], axis=1
         )
 
-        agent1_prices = all_env_stats[f"train/all_envs/mean_action/price_player_1"][
-            :, j, :
-        ]
-        agent2_prices = all_env_stats[f"train/all_envs/mean_action/price_player_2"][
-            :, j, :
-        ]
+        agent1_prices = all_env_stats[f"train/all_envs/mean_action/price_player_1"][:, j, :]
+        agent2_prices = all_env_stats[f"train/all_envs/mean_action/price_player_2"][:, j, :]
 
         quotient_price_diff = np.abs(agent1_prices - agent2_prices) / (
             param_args["collusive_price"] - param_args["competitive_price"]
@@ -781,11 +740,7 @@ def plot_paper_boxplots_fancy(all_env_stats, param, param_values, param_args):
         # Add boxplots to each subplot with narrower boxes
         box_width = 0.3
         for i, ax in enumerate(axs):
-            data = (
-                convergence_vs_dispersion_metric_per_seed
-                if i == 0
-                else coll_idx_per_seed_gen
-            )
+            data = convergence_vs_dispersion_metric_per_seed if i == 0 else coll_idx_per_seed_gen
             bp = ax.boxplot(data, positions=[j], widths=box_width, patch_artist=True)
 
             for element in [
@@ -818,9 +773,7 @@ def plot_paper_boxplots_fancy(all_env_stats, param, param_values, param_args):
     # Set x-ticks and labels
     for ax in axs:
         ax.set_xticks(range(len(param_values)))
-        ax.set_xticklabels(
-            [format_float(value) for value in param_values], rotation=45, ha="right"
-        )
+        ax.set_xticklabels([format_float(value) for value in param_values], rotation=45, ha="right")
 
     # Add threshold lines
     axs[0].axhline(
@@ -1098,13 +1051,11 @@ def plot_boxplots(
         )
         for agent_idx in range(param_args["num_players"]):
             agent_profit_gains[:, agent_idx, :] = data[
-                f"train/collusion_index/mean_player_{agent_idx+1}"
+                f"train/collusion_index/mean_player_{agent_idx + 1}"
             ][:, j, :]
 
         coll_idx_gen = generalized_mean(agent_profit_gains, p=0.5)
-        coll_idx_per_seed_gen = np.mean(
-            coll_idx_gen[:, -last_ten_percent_episodes:], axis=1
-        )
+        coll_idx_per_seed_gen = np.mean(coll_idx_gen[:, -last_ten_percent_episodes:], axis=1)
 
         agent1_prices = data[f"train/all_envs/mean_action/price_player_1"][:, j, :]
         agent2_prices = data[f"train/all_envs/mean_action/price_player_2"][:, j, :]
@@ -1112,9 +1063,7 @@ def plot_boxplots(
         quotient_price_diff = np.abs(agent1_prices - agent2_prices) / (
             param_args["collusive_price"] - param_args["competitive_price"]
         )
-        convergence_metric = np.mean(
-            quotient_price_diff[:, -last_ten_percent_episodes:], axis=1
-        )
+        convergence_metric = np.mean(quotient_price_diff[:, -last_ten_percent_episodes:], axis=1)
 
         box_width = 0.3
         position = j + (0.2 if algo == "PPO" else -0.2)
@@ -1151,9 +1100,7 @@ def plot_boxplots(
 
     for ax in axs:
         ax.set_xticks(range(len(param_values)))
-        ax.set_xticklabels(
-            [str(value) for value in param_values], rotation=45, ha="right"
-        )
+        ax.set_xticklabels([str(value) for value in param_values], rotation=45, ha="right")
 
 
 # def generalized_mean(x, p=0.5, ax=1):
@@ -1166,7 +1113,5 @@ def plot_boxplots(
 make_DQN_and_PPO_boxplots()
 
 
-display_plots(
-    os.path.join("exp/fig4_combined_boxplots", "fig4_*_combined_boxplots.png")
-)
+display_plots(os.path.join("exp/fig4_combined_boxplots", "fig4_*_combined_boxplots.png"))
 # %%

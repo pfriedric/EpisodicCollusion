@@ -1,7 +1,5 @@
 import jax
 import jax.numpy as jnp
-import numpy as np
-from typing import Optional, Tuple, Union, Any
 from functools import partial
 
 from environment.market_env import EnvState
@@ -72,9 +70,7 @@ class DummyDoubleVecObsWrapper(GymnaxWrapper):
     @partial(jax.jit, static_argnums=(0,))
     def batch_reset(self, key, params=None):
         obs, state = self._env.batch_reset(key, params)
-        state = NormalizeDoubleVecObsEnvState(
-            mean=None, var=None, count=None, env_state=state
-        )
+        state = NormalizeDoubleVecObsEnvState(mean=None, var=None, count=None, env_state=state)
         return obs, state
 
     @partial(jax.jit, static_argnums=(0,))
@@ -82,9 +78,7 @@ class DummyDoubleVecObsWrapper(GymnaxWrapper):
         obs, env_state, rewards, done, info = self._env.batch_step(
             key, state.env_state, action, params
         )
-        state = NormalizeDoubleVecObsEnvState(
-            mean=None, var=None, count=None, env_state=env_state
-        )
+        state = NormalizeDoubleVecObsEnvState(mean=None, var=None, count=None, env_state=env_state)
         return obs, state, rewards, done, info
 
 
@@ -109,9 +103,7 @@ class NormalizeDoubleVecObservation(GymnaxWrapper):
         )  # squeeze leading dim to get [n_e]
 
         state = NormalizeDoubleVecObsEnvState(
-            mean=jax.tree_util.tree_map(
-                lambda x: jnp.zeros_like(x), obs
-            ),  # shape [n_envs, ..]
+            mean=jax.tree_util.tree_map(lambda x: jnp.zeros_like(x), obs),  # shape [n_envs, ..]
             var=jax.tree_util.tree_map(lambda x: jnp.ones_like(x), obs),  # [n_e, ..]
             count=1e-4,
             env_state=state,  # [n_o, n_e]
@@ -130,9 +122,7 @@ class NormalizeDoubleVecObservation(GymnaxWrapper):
         m_a = jax.tree_util.tree_map(lambda x: x * state.count, state.var)
         m_b = jax.tree_util.tree_map(lambda x: x * batch_count, batch_var)
         M2 = jax.tree_util.tree_map(
-            lambda ma, mb, d: ma
-            + mb
-            + jnp.square(d) * state.count * batch_count / total_count,
+            lambda ma, mb, d: ma + mb + jnp.square(d) * state.count * batch_count / total_count,
             m_a,
             m_b,
             delta,
@@ -172,9 +162,7 @@ class NormalizeDoubleVecObservation(GymnaxWrapper):
         )  # squeeze leading dim to get [n_e]
 
         state = NormalizeVecObsEnvState(
-            mean=jax.tree_util.tree_map(
-                lambda x: jnp.zeros_like(x), obs
-            ),  # shape [n_envs, ..]
+            mean=jax.tree_util.tree_map(lambda x: jnp.zeros_like(x), obs),  # shape [n_envs, ..]
             var=jax.tree_util.tree_map(lambda x: jnp.ones_like(x), obs),  # [n_e, ..]
             count=1e-4,
             env_state=state,  # [n_o, n_e]
@@ -193,9 +181,7 @@ class NormalizeDoubleVecObservation(GymnaxWrapper):
         m_a = jax.tree_util.tree_map(lambda x: x * state.count, state.var)
         m_b = jax.tree_util.tree_map(lambda x: x * batch_count, batch_var)
         M2 = jax.tree_util.tree_map(
-            lambda ma, mb, d: ma
-            + mb
-            + jnp.square(d) * state.count * batch_count / total_count,
+            lambda ma, mb, d: ma + mb + jnp.square(d) * state.count * batch_count / total_count,
             m_a,
             m_b,
             delta,
@@ -295,8 +281,7 @@ class NormalizeDoubleVecReward(GymnaxWrapper):
         # flat_obs, _ = jax.tree_util.tree_flatten(obs)
         # batch_count = flat_obs[0].shape[1]  # n_envs
         state = NormalizeDoubleVecRewEnvState(
-            mean=200
-            * jnp.ones((self.num_players)),  # jnp.zeros((self.num_players)),  # [n_a]
+            mean=200 * jnp.ones((self.num_players)),  # jnp.zeros((self.num_players)),  # [n_a]
             var=jnp.zeros((self.num_players)),  # jnp.ones((self.num_players)),  # [n_a]
             count=1,  # 1e-4,
             return_val=jnp.zeros((batch_count, self.num_players)),  # [n_e, n_a]
@@ -428,9 +413,7 @@ class NormalizeVecObservation(GymnaxWrapper):
         return (obs - state.mean) / jnp.sqrt(state.var + 1e-8), state
 
     def step(self, key, state, action, params=None):
-        obs, env_state, reward, done, info = self._env.step(
-            key, state.env_state, action, params
-        )
+        obs, env_state, reward, done, info = self._env.step(key, state.env_state, action, params)
 
         batch_mean = jnp.mean(obs, axis=0)
         batch_var = jnp.var(obs, axis=0)
@@ -503,9 +486,7 @@ class NormalizeVecReward(GymnaxWrapper):
         return obs, state
 
     def step(self, key, state, action, params=None):
-        obs, env_state, reward, done, info = self._env.step(
-            key, state.env_state, action, params
-        )
+        obs, env_state, reward, done, info = self._env.step(key, state.env_state, action, params)
         return_val = state.return_val * self.gamma * (1 - done) + reward
 
         batch_mean = jnp.mean(return_val, axis=0)
@@ -536,14 +517,10 @@ if __name__ == "__main__":
     # dummy observation in unbatched form. the batching will add 2 leading dimensions [n_opponents, n_envs] to everything
     dummy_obs = {
         "inventories": jnp.array(
-            jax.random.randint(
-                jax.random.PRNGKey(0), shape=(1, 5, 3), minval=0, maxval=10
-            )
+            jax.random.randint(jax.random.PRNGKey(0), shape=(1, 5, 3), minval=0, maxval=10)
         ),  # shape [2], dtype int
         "last_prices": jnp.array(
-            jax.random.uniform(
-                jax.random.PRNGKey(0), shape=(1, 5, 2), minval=0, maxval=1
-            )
+            jax.random.uniform(jax.random.PRNGKey(0), shape=(1, 5, 2), minval=0, maxval=1)
         ),  # shape [2], dtype float
     }
     flat_obs, _ = jax.tree_util.tree_flatten(dummy_obs)
@@ -552,106 +529,3 @@ if __name__ == "__main__":
     print(bc)
     a = jnp.array([[408.19998, 247.68001]])
     print(jnp.var(a, axis=1))
-    # print(dummy_obs[next(iter(dummy_obs))].shape[0])
-
-#     # print(dummy_obs.items())
-#     dummy_obs = jnp.array(
-#         jax.random.randint(jax.random.PRNGKey(0), shape=(5, 3), minval=0, maxval=10)
-#     )  # n_batch = 5, dims=3
-#     smean = jnp.ones_like(dummy_obs)
-#     smean = jnp.array([[i, i, i] for i in range(5)])
-#     print(smean)
-#     batch_mean = jnp.mean(dummy_obs, axis=0)
-#     print(f"batch mean: {batch_mean}, shape {batch_mean.shape}")
-#     batch_var = jnp.var(dummy_obs, axis=0)
-#     batch_count = dummy_obs.shape[0]
-#     scount = 10
-
-#     delta = batch_mean - smean
-#     print(f"{batch_mean} - {smean} = {delta}, shape {delta.shape}")
-
-#     svar = jnp.ones_like(dummy_obs)
-#     tot_count = 0 + batch_count
-
-#     new_mean = smean + delta * batch_count / tot_count
-#     m_a = svar * scount  # ones * 10 [n_batch, n_ags]
-#     m_b = batch_var * batch_count  # [n_ags] each entry that agent's var over the batch
-#     M2 = (
-#         m_a + m_b + jnp.square(delta) * scount * batch_count / tot_count
-#     )  # weighted (by #samples) sum of state var ([B, ..]), batch var [...], (batch mean [...] - state mean [B, ...])*B/TOTAL
-#     new_var = M2 / tot_count
-#     new_count = tot_count  # total num of samples processed ever
-
-# if __name__ == "__main__":
-#     obs = {"aa": jnp.array([[1, 1], [2, 2]]), "bb": jnp.array([[2, 2, 2], [3, 3, 3]])}
-#     state_count = 10
-#     batch_mean = jax.tree_util.tree_map(lambda x: jnp.mean(x, axis=0), obs)
-#     print(f"batch_mean: {batch_mean}")  # aa: [1.5, 1.5], bb: [2.5, 2.5, 2.5]
-#     batch_var = jax.tree_util.tree_map(
-#         lambda x: jnp.var(x, axis=0), obs
-#     )  # 0.25 throughout
-#     print(f"batch var: {batch_var}")
-#     state_mean = jax.tree_util.tree_map(
-#         lambda x: 0.1 * jnp.ones_like(x), obs
-#     )  # aa: 0.1 [2,2], bb: 0.1 [2,3]
-#     state_var = jax.tree_util.tree_map(lambda x: jnp.ones_like(x), obs)
-#     batch_count = obs[next(iter(obs))].shape[0]  # 2
-#     print(f"state_mean: {state_mean}")
-#     print(f"state_var: {state_var}")
-#     print(batch_count)
-#     total_count = state_count + batch_count
-
-#     delta = jax.tree_util.tree_map(lambda bm, sm: bm - sm, batch_mean, state_mean)
-#     print(f"delta: {delta}")  # aa: 1.4 [2,2], bb: 2.4 [2,3]
-
-#     new_mean = jax.tree_util.tree_map(
-#         lambda sm, delta: sm + delta * batch_count / (state_count + batch_count),
-#         state_mean,
-#         delta,
-#     )  # aa: 0.1 + 1.4 * 2 / 12 = 0.333, bb: 0.5
-#     print(f"new_mean: {new_mean}")
-
-#     m_a = jax.tree_util.tree_map(
-#         lambda x: x * state_count, state_var
-#     )  # 10 [2,2] and [2,3]
-#     m_b = jax.tree_util.tree_map(
-#         lambda x: x * batch_count, batch_var
-#     )  # 0.5 [2] and [3]
-#     print(f"m_a: {m_a}, mb: {m_b}")
-#     # var:
-#     M2 = jax.tree_util.tree_map(
-#         lambda ma, mb, d: ma
-#         + mb
-#         + jnp.square(d) * state_count * batch_count / total_count,
-#         m_a,
-#         m_b,
-#         delta,
-#     )
-#     new_var = jax.tree_util.tree_map(lambda x: x / total_count, M2)
-#     print(f"new_var: {new_var}")
-#     new_count = total_count
-
-#     res = jax.tree_util.tree_map(
-#         lambda o, sm, sv: o - sm / jnp.sqrt(sv + 1e-8), obs, state_mean, state_var
-#     )
-#     print(res)
-
-#     obs = jnp.array([[1, 1], [2, 2]])
-#     obs = jnp.array([[2, 2, 2], [3, 3, 3]])
-#     state_mean = jnp.ones_like(obs) * 0.1
-#     state_var = jnp.ones_like(obs)
-#     batch_mean = jnp.mean(obs, axis=0)
-#     batch_var = jnp.var(obs, axis=0)
-#     batch_count = obs.shape[0]
-
-#     delta = batch_mean - state_mean
-#     tot_count = state_count + batch_count
-
-#     new_mean = state_mean + delta * batch_count / tot_count
-#     m_a = state_var * state_count
-#     m_b = batch_var * batch_count
-#     M2 = m_a + m_b + jnp.square(delta) * state_count * batch_count / tot_count
-#     new_var = M2 / tot_count
-#     new_count = tot_count
-
-#     print((obs - state_mean) / jnp.sqrt(state_var + 1e-8))

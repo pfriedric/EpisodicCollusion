@@ -5,25 +5,17 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import matplotlib.pyplot as plt
-import yaml
-import pandas as pd
 import glob
-from tabulate import tabulate
 
 from plotting_utils import (
-    apply_moving_average,
     overall_mean_stdev_from_seed_means_variances,
     plot_agent_metrics_shaded,
-    plot_agent_metrics_shaded_selectable_color,
     plot_agent_metrics_indiv_seeds,
     display_single_plot,
 )
 
 ### Alter this for different runs. Options for the algorithm: "DQN", "PPO", "compPPO", "unconstDQN"
 save_dir = "exp/DQN"
-
-
-
 
 
 plot_new = True
@@ -49,7 +41,9 @@ try:
     if isinstance(log_data, tuple):
         if len(log_data) == 2:
             log_data, eval_log_data = log_data
-            forced_deviation_log_data = None  # has shape [num_seeds, num_configs, num_deviations, num_timesteps]
+            forced_deviation_log_data = (
+                None  # has shape [num_seeds, num_configs, num_deviations, num_timesteps]
+            )
         elif len(log_data) == 3:
             log_data, eval_log_data, forced_deviation_log_data = log_data
             forced_deviation_log_data_unstacked = [
@@ -85,7 +79,7 @@ num_iters = args["num_iters"]
 num_seeds = args["num_seeds"]
 time_horizon = args["time_horizon"]
 num_envs = args["num_envs"]
-agents = [args[f"agent{i+1}"] for i in range(args["num_players"])]
+agents = [args[f"agent{i + 1}"] for i in range(args["num_players"])]
 
 
 log_interval = max(num_iters // 1000, 5 if num_iters > 1000 else 1)
@@ -111,15 +105,15 @@ print(f"  price grid: {args['which_price_grid']}")
 if args["agent_default"] == "DQN":
     print(f"DQN setup:")
     print(
-        f"  LR {args['dqn_default']['learning_rate']} {'annealing to 0' if args['dqn_default']['lr_scheduling'] else 'fixed'} {'over '+str(args['dqn_default']['lr_anneal_duration']*100)+'% of run' if args['dqn_default']['lr_scheduling'] else '(flat)'}"
+        f"  LR {args['dqn_default']['learning_rate']} {'annealing to 0' if args['dqn_default']['lr_scheduling'] else 'fixed'} {'over ' + str(args['dqn_default']['lr_anneal_duration'] * 100) + '% of run' if args['dqn_default']['lr_scheduling'] else '(flat)'}"
     )
     try:
         print(
-            f"  Epsilon anneals {'linearly' if args['dqn_default']['epsilon_anneal_type'] == 'linear' else 'exponentially'} from {args['dqn_default']['epsilon_start']} to {args['dqn_default']['epsilon_finish']} over {args['dqn_default']['epsilon_anneal_duration']*100:.2f}% of run"
+            f"  Epsilon anneals {'linearly' if args['dqn_default']['epsilon_anneal_type'] == 'linear' else 'exponentially'} from {args['dqn_default']['epsilon_start']} to {args['dqn_default']['epsilon_finish']} over {args['dqn_default']['epsilon_anneal_duration'] * 100:.2f}% of run"
         )
     except:
         print(
-            f"  Epsilon anneals linearly from {args['dqn_default']['epsilon_start']} to {args['dqn_default']['epsilon_finish']} over {args['dqn_default']['epsilon_anneal_duration']*100:.2f}% of run"
+            f"  Epsilon anneals linearly from {args['dqn_default']['epsilon_start']} to {args['dqn_default']['epsilon_finish']} over {args['dqn_default']['epsilon_anneal_duration'] * 100:.2f}% of run"
         )
     print(
         f"  buffer size: {args['dqn_default']['buffer_size']}, batch size: {args['dqn_default']['buffer_batch_size']}"
@@ -152,13 +146,9 @@ def plot_main(env_metrics, x_axis, gen_mean_p):
 
     # filter x-axis if DQN agents were used so we don't plot non-training eps at the start
     if all(agent == "DQN" for agent in agents):
-        start_index = next(
-            (i for i, x in enumerate(x_axis) if x > dqn_training_starts), 0
-        )
+        start_index = next((i for i, x in enumerate(x_axis) if x > dqn_training_starts), 0)
         filtered_x_axis = x_axis[start_index:]
-        env_metrics_sliced = {
-            k: v[:, start_index:] for k, v in env_metrics_sliced.items()
-        }
+        env_metrics_sliced = {k: v[:, start_index:] for k, v in env_metrics_sliced.items()}
     else:
         start_index = 0
         filtered_x_axis = x_axis
@@ -167,7 +157,7 @@ def plot_main(env_metrics, x_axis, gen_mean_p):
     total_profit_means = np.zeros((num_seeds, len(filtered_x_axis)))
     for agent_idx, agent in enumerate(agents):
         agent_seed_means = env_metrics_sliced[
-            f"vmap_metrics/total_profit_mean_player_{agent_idx+1}"
+            f"vmap_metrics/total_profit_mean_player_{agent_idx + 1}"
         ].astype(np.float32)
         # print(f"shape of agent_seed_means: {agent_seed_means.shape}")
         total_profit_means += agent_seed_means  # [seeds, T]
@@ -186,19 +176,15 @@ def plot_main(env_metrics, x_axis, gen_mean_p):
     )
     axs[0, 0].set_title("Total Profit")
     # horizontal line at competitive and collusive profits
-    axs[0, 0].axhline(
-        np.sum(competitive_profits_episodetotal), color="r", linestyle="--"
-    )
+    axs[0, 0].axhline(np.sum(competitive_profits_episodetotal), color="r", linestyle="--")
     axs[0, 0].axhline(np.sum(collusive_profits_episodetotal), color="g", linestyle="--")
     axs[0, 0].set_xlabel("episodes")
 
     for agent_idx, agent in enumerate(agents):
         agent_seed_means = env_metrics_sliced[
-            f"train/all_envs/mean_action/action_player_{agent_idx+1}"
+            f"train/all_envs/mean_action/action_player_{agent_idx + 1}"
         ]
-        agent_seed_vars = env_metrics_sliced[
-            f"vmap_metrics/action_var_player_{agent_idx+1}"
-        ]
+        agent_seed_vars = env_metrics_sliced[f"vmap_metrics/action_var_player_{agent_idx + 1}"]
         if plot_shaded_or_individual == "individual":
             axs[0, 1], line, _, _ = plot_agent_metrics_indiv_seeds(
                 axs[0, 1],
@@ -250,7 +236,7 @@ def plot_main(env_metrics, x_axis, gen_mean_p):
     agent_profit_gains_seeds = np.zeros((num_seeds, len(agents), len(filtered_x_axis)))
     for agent_idx, agent in enumerate(agents):
         agent_profit_gains_seeds[:, agent_idx, :] = env_metrics_sliced[
-            f"train/collusion_index/mean_player_{agent_idx+1}"
+            f"train/collusion_index/mean_player_{agent_idx + 1}"
         ]  # [seeds, N, T]
 
     coll_idx_seeds_arith = agent_profit_gains_seeds.mean(axis=1)
@@ -271,16 +257,10 @@ def plot_main(env_metrics, x_axis, gen_mean_p):
     # print(f"coll_idx_geom_mean[-100:]: {coll_idx_geom_mean[-100:]}")
     if plot_shaded_or_individual == "individual":
         for seed in range(num_seeds):
-            axs[1, 0].plot(
-                filtered_x_axis, coll_idx_seeds_arith[seed], alpha=0.1, linewidth=0.75
-            )
-            axs[1, 1].plot(
-                filtered_x_axis, coll_idx_seeds_gen[seed], alpha=0.1, linewidth=0.75
-            )
+            axs[1, 0].plot(filtered_x_axis, coll_idx_seeds_arith[seed], alpha=0.1, linewidth=0.75)
+            axs[1, 1].plot(filtered_x_axis, coll_idx_seeds_gen[seed], alpha=0.1, linewidth=0.75)
 
-        axs[1, 0].plot(
-            filtered_x_axis, coll_idx_arith_mean, linewidth=1.5, color="black"
-        )
+        axs[1, 0].plot(filtered_x_axis, coll_idx_arith_mean, linewidth=1.5, color="black")
         axs[1, 1].plot(filtered_x_axis, coll_idx_gen_mean, linewidth=1.5, color="black")
     elif plot_shaded_or_individual == "shaded":
         axs[1, 0].plot(filtered_x_axis, coll_idx_arith_mean, linewidth=0.75)
@@ -314,7 +294,7 @@ def plot_main(env_metrics, x_axis, gen_mean_p):
     # plt.show()
 
     print(
-        f"gen_mean last 10%: {coll_idx_gen_mean[-int(len(coll_idx_gen_mean)*0.1):].mean():.2f}"
+        f"gen_mean last 10%: {coll_idx_gen_mean[-int(len(coll_idx_gen_mean) * 0.1) :].mean():.2f}"
     )
 
     fig.tight_layout()
@@ -351,9 +331,7 @@ def plot_vert(env_metrics, x_axis, gen_mean_p):
     plt.rcParams["ytick.major.width"] = 0.8
     plt.rcParams["xtick.direction"] = "out"
     plt.rcParams["ytick.direction"] = "out"
-    plt.rcParams["axes.prop_cycle"] = plt.cycler(
-        color=["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]
-    )
+    plt.rcParams["axes.prop_cycle"] = plt.cycler(color=["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"])
     plt.rcParams["text.usetex"] = True
 
     fig, axs = plt.subplots(2, 1, figsize=(6, 8))
@@ -362,13 +340,9 @@ def plot_vert(env_metrics, x_axis, gen_mean_p):
 
     # filter x-axis if DQN agents were used so we don't plot non-training eps at the start
     if all(agent == "DQN" for agent in agents):
-        start_index = next(
-            (i for i, x in enumerate(x_axis) if x > dqn_training_starts), 0
-        )
+        start_index = next((i for i, x in enumerate(x_axis) if x > dqn_training_starts), 0)
         filtered_x_axis = x_axis[start_index:]
-        env_metrics_sliced = {
-            k: v[:, start_index:] for k, v in env_metrics_sliced.items()
-        }
+        env_metrics_sliced = {k: v[:, start_index:] for k, v in env_metrics_sliced.items()}
     else:
         start_index = 0
         filtered_x_axis = x_axis
@@ -377,7 +351,7 @@ def plot_vert(env_metrics, x_axis, gen_mean_p):
     total_profit_means = np.zeros((num_seeds, len(filtered_x_axis)))
     for agent_idx, agent in enumerate(agents):
         agent_seed_means = env_metrics_sliced[
-            f"vmap_metrics/total_profit_mean_player_{agent_idx+1}"
+            f"vmap_metrics/total_profit_mean_player_{agent_idx + 1}"
         ].astype(np.float32)
         # print(f"shape of agent_seed_means: {agent_seed_means.shape}")
         total_profit_means += agent_seed_means  # [seeds, T]
@@ -389,11 +363,9 @@ def plot_vert(env_metrics, x_axis, gen_mean_p):
     agent_colors = plt.cm.tab10.colors  #  "#1f77b4", "#ff7f0e"]
     for agent_idx, agent in enumerate(agents):
         agent_seed_means = env_metrics_sliced[
-            f"train/all_envs/mean_action/action_player_{agent_idx+1}"
+            f"train/all_envs/mean_action/action_player_{agent_idx + 1}"
         ]
-        agent_seed_vars = env_metrics_sliced[
-            f"vmap_metrics/action_var_player_{agent_idx+1}"
-        ]
+        agent_seed_vars = env_metrics_sliced[f"vmap_metrics/action_var_player_{agent_idx + 1}"]
         # axs[0], line, _, _ = plot_agent_metrics_shaded_selectable_color(
         #     axs[0],
         #     agent_seed_means,
@@ -423,7 +395,7 @@ def plot_vert(env_metrics, x_axis, gen_mean_p):
         axs[0].plot(
             filtered_x_axis,
             metric_mean,
-            label=f"Agent {agent_idx+1}",
+            label=f"Agent {agent_idx + 1}",
             linewidth=2,
             color=agent_colors[agent_idx],
         )
@@ -431,10 +403,10 @@ def plot_vert(env_metrics, x_axis, gen_mean_p):
 
         if agent == "DQN":
             greedy_action_mean = env_metrics_sliced[
-                f"vmap_metrics/greedy_action_mean_player_{agent_idx+1}"
+                f"vmap_metrics/greedy_action_mean_player_{agent_idx + 1}"
             ]
             greedy_action_var = env_metrics_sliced[
-                f"vmap_metrics/greedy_action_var_player_{agent_idx+1}"
+                f"vmap_metrics/greedy_action_var_player_{agent_idx + 1}"
             ]
             axs[0].plot(
                 filtered_x_axis,
@@ -474,9 +446,7 @@ def plot_vert(env_metrics, x_axis, gen_mean_p):
     axs[0].set_xlabel("Episodes", fontsize=15, labelpad=10)
     axs[0].set_ylabel("Action", fontsize=15, labelpad=10)
     axs[0].set_title("Average Action per Episode", fontsize=16, pad=10)
-    legend = axs[0].legend(
-        fontsize=12, frameon=True, loc="upper left", bbox_to_anchor=(0.02, 0.98)
-    )
+    legend = axs[0].legend(fontsize=12, frameon=True, loc="upper left", bbox_to_anchor=(0.02, 0.98))
     legend.get_frame().set_edgecolor("#333333")
     legend.get_frame().set_linewidth(0.8)
 
@@ -484,7 +454,7 @@ def plot_vert(env_metrics, x_axis, gen_mean_p):
     agent_profit_gains_seeds = np.zeros((num_seeds, len(agents), len(filtered_x_axis)))
     for agent_idx, agent in enumerate(agents):
         agent_profit_gains_seeds[:, agent_idx, :] = env_metrics_sliced[
-            f"train/collusion_index/mean_player_{agent_idx+1}"
+            f"train/collusion_index/mean_player_{agent_idx + 1}"
         ]  # [seeds, N, T]
 
     # coll_idx_seeds_arith = agent_profit_gains_seeds.mean(axis=1)
@@ -572,7 +542,7 @@ def plot_vert(env_metrics, x_axis, gen_mean_p):
     # plt.show()
 
     print(
-        f"gen_mean last 10%: {coll_idx_gen_mean[-int(len(coll_idx_gen_mean)*0.1):].mean():.2f}"
+        f"gen_mean last 10%: {coll_idx_gen_mean[-int(len(coll_idx_gen_mean) * 0.1) :].mean():.2f}"
     )
 
     fig.tight_layout()
@@ -589,9 +559,7 @@ def plot_vert(env_metrics, x_axis, gen_mean_p):
 
 
 plot_vert(all_env_stats, x_axis, generalized_mean_p)
-display_single_plot(
-    os.path.join(save_dir, "paper_plots", f"fig2_{run_name}_training.png")
-)
+display_single_plot(os.path.join(save_dir, "paper_plots", f"fig2_{run_name}_training.png"))
 
 
 # %%
@@ -606,9 +574,7 @@ def plot_PPO_and_DQN_training_runs():
     plt.rcParams["ytick.major.width"] = 0.8
     plt.rcParams["xtick.direction"] = "out"
     plt.rcParams["ytick.direction"] = "out"
-    plt.rcParams["axes.prop_cycle"] = plt.cycler(
-        color=["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]
-    )
+    plt.rcParams["axes.prop_cycle"] = plt.cycler(color=["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"])
     plt.rcParams["text.usetex"] = True
 
     fig, axs = plt.subplots(3, 1, figsize=(6, 10))
@@ -629,9 +595,7 @@ def plot_PPO_and_DQN_training_runs():
         log_data, _, _ = log_data
         all_env_stats, _, _ = log_data  # detangling from agent metrics
 
-        log_interval = max(
-            args["num_iters"] // 1000, 5 if args["num_iters"] > 1000 else 1
-        )
+        log_interval = max(args["num_iters"] // 1000, 5 if args["num_iters"] > 1000 else 1)
         x_axis = np.arange(0, args["num_iters"], log_interval)
         max_episodes = max(max_episodes, len(x_axis))
 
@@ -648,11 +612,9 @@ def plot_PPO_and_DQN_training_runs():
         agent_colors = ["#1f77b4", "#ff7f0e"]
         for agent_idx in range(args["num_players"]):
             agent_seed_means = env_metrics_sliced[
-                f"train/all_envs/mean_action/action_player_{agent_idx+1}"
+                f"train/all_envs/mean_action/action_player_{agent_idx + 1}"
             ]
-            agent_seed_vars = env_metrics_sliced[
-                f"vmap_metrics/action_var_player_{agent_idx+1}"
-            ]
+            agent_seed_vars = env_metrics_sliced[f"vmap_metrics/action_var_player_{agent_idx + 1}"]
 
             metric_mean, metric_std = overall_mean_stdev_from_seed_means_variances(
                 agent_seed_means, agent_seed_vars, args["num_envs"]
@@ -670,16 +632,12 @@ def plot_PPO_and_DQN_training_runs():
             axs[i].plot(
                 x_axis,
                 metric_mean,
-                label=f"{algo} {agent_idx+1}",
+                label=f"{algo} {agent_idx + 1}",
                 linewidth=2,
                 color=agent_colors[agent_idx],
             )
-        axs[i].axhline(
-            args["competitive_action"], color="#d62728", linestyle="--", linewidth=2
-        )
-        axs[i].axhline(
-            args["collusive_action"], color="#2ca02c", linestyle="--", linewidth=2
-        )
+        axs[i].axhline(args["competitive_action"], color="#d62728", linestyle="--", linewidth=2)
+        axs[i].axhline(args["collusive_action"], color="#2ca02c", linestyle="--", linewidth=2)
 
         # axs[i].set_ylim(0, args["num_prices"])
         tick_interval = max(1, args["num_prices"] // 7)
@@ -701,12 +659,10 @@ def plot_PPO_and_DQN_training_runs():
 
         env_metrics_sliced = {k: v[:, 0, x_axis, ...] for k, v in env_stats.items()}
 
-        agent_profit_gains_seeds = np.zeros(
-            (args["num_seeds"], args["num_players"], len(x_axis))
-        )
+        agent_profit_gains_seeds = np.zeros((args["num_seeds"], args["num_players"], len(x_axis)))
         for agent_idx in range(args["num_players"]):
             agent_profit_gains_seeds[:, agent_idx, :] = env_metrics_sliced[
-                f"train/collusion_index/mean_player_{agent_idx+1}"
+                f"train/collusion_index/mean_player_{agent_idx + 1}"
             ]
 
         coll_idx_seeds_gen = generalized_mean(agent_profit_gains_seeds, p=0.5)
@@ -715,9 +671,7 @@ def plot_PPO_and_DQN_training_runs():
 
         normalized_x = np.linspace(0, 100, len(x_axis))
 
-        axs[2].plot(
-            normalized_x, coll_idx_gen_mean, linewidth=2, color=colors[algo], label=algo
-        )
+        axs[2].plot(normalized_x, coll_idx_gen_mean, linewidth=2, color=colors[algo], label=algo)
         axs[2].fill_between(
             normalized_x,
             coll_idx_gen_mean - np.sqrt(coll_idx_gen_var),
@@ -732,9 +686,7 @@ def plot_PPO_and_DQN_training_runs():
     axs[2].axhline(1, color="#2ca02c", linestyle="--", linewidth=2)
     axs[2].set_xlabel(f"Training Progress (\%)", fontsize=15, labelpad=5)
     axs[2].set_ylabel("Collusion Index", fontsize=15, labelpad=5)
-    axs[2].legend(
-        fontsize=14, frameon=True, loc="upper left", bbox_to_anchor=(0.02, 0.96)
-    )
+    axs[2].legend(fontsize=14, frameon=True, loc="upper left", bbox_to_anchor=(0.02, 0.96))
 
     fig.tight_layout()
     plot_dir = os.path.join("exp", "fig2_combined_plots")

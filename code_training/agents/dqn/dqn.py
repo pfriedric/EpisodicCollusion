@@ -1,28 +1,20 @@
 # Adapted from https://github.com/google-deepmind/acme/blob/master/acme/agents/jax/dqn/learning_lib.py
 
-from multiprocessing import dummy
-import random
-from re import U
 import jax
 from jaxtyping import Array
 from typing import NamedTuple, Tuple, Dict, Any
-from matplotlib.pyplot import bar
-import typing_extensions
+
 import optax
 import haiku as hk
 import jax.numpy as jnp
-from agents.agent import AgentInterface
-from agents.dqn.networks import make_dqn_marketenv_network, QNetwork_marketenv
+
+from agents.dqn.networks import make_dqn_marketenv_network
 from utils import (
     MemoryState,
-    TrainingState,
     Logger,
-    add_batch_dim,
-    get_advantages,
-    float_precision,
 )
 
-import omegaconf
+# import omegaconf
 import flashbax as fbx
 from flashbax.buffers.trajectory_buffer import TrajectoryBufferState
 from functools import partial
@@ -92,7 +84,6 @@ class DQN:
         training_interval_episodes: int = 1,
         target_update_interval_episodes: int = 1,
     ):
-
         @jax.jit
         def rescale_to_minus_one_one(x, lower, upper):
             return 2 * (x - lower) / (upper - lower) - 1
@@ -130,9 +121,7 @@ class DQN:
                 obs_limits["last_prices_upper"],
             )
             # time: 1-t/T: 1->0
-            new_observation["t"] = rescale_to_zero_one(
-                observation["t"], 0, obs_limits["t_upper"]
-            )
+            new_observation["t"] = rescale_to_zero_one(observation["t"], 0, obs_limits["t_upper"])
             new_observation["t"] = 1 - new_observation["t"]
 
             # T-t: new_observation["t"] = obs_limits["t_upper"]-observation["t"]
@@ -187,9 +176,7 @@ class DQN:
                     epsilon_finish,
                 )
             if epsilon_anneal_type == "exponential":
-                decay_rate = (epsilon_finish / epsilon_start) ** (
-                    1 / epsilon_anneal_time
-                )
+                decay_rate = (epsilon_finish / epsilon_start) ** (1 / epsilon_anneal_time)
                 eps = epsilon_start * (decay_rate**timestep)
                 if epsilon_clipping:
                     eps = jnp.clip(eps, epsilon_finish)
@@ -217,9 +204,7 @@ class DQN:
 
             # rescale observations
             rescaled_observations = rescale_observations(observation, obs_limits)
-            q_vals = network.apply(
-                state.params, rescaled_observations
-            )  # (batch_dim, num_actions)
+            q_vals = network.apply(state.params, rescaled_observations)  # (batch_dim, num_actions)
 
             # get actions via epsilon-greedy exploration
             actions, eps, greedy_actions = epsilon_greedy_exploration(
@@ -238,9 +223,7 @@ class DQN:
             Receives batched input (batch dim=num_envs).
             In: obs (batch_dim, obs_dim)"""
             rescaled_observations = rescale_observations(observation, obs_limits)
-            q_vals = network.apply(
-                state.params, rescaled_observations
-            )  # (batch_dim, num_actions)
+            q_vals = network.apply(state.params, rescaled_observations)  # (batch_dim, num_actions)
 
             greedy_actions = jnp.argmax(q_vals, axis=-1)
             extras = {"q_vals": q_vals}
@@ -261,13 +244,9 @@ class DQN:
             rescaled_obs_next = rescale_observations(obs_next, obs_limits)
 
             # TD-target via Double Q-learning (target network selects next_action)
-            q_next_target = network.apply(
-                target_params, rescaled_obs_next
-            )  # (B, num_actions)
+            q_next_target = network.apply(target_params, rescaled_obs_next)  # (B, num_actions)
             next_action_qvals_target = jnp.max(q_next_target, axis=-1)  # (B,)
-            td_target = (
-                reward_t + (1 - dones_t) * discount * next_action_qvals_target
-            )  # (B,)
+            td_target = reward_t + (1 - dones_t) * discount * next_action_qvals_target  # (B,)
 
             # Q-val of chosen action at t
             q_t = network.apply(params, rescaled_obs_t)  # (B, num_actions)
@@ -297,9 +276,9 @@ class DQN:
 
             # sample from replay buffer
             next_key, buffer_key = jax.random.split(state.random_key, 2)
-            learn_batch = self._buffer_fn.sample(
-                state.buffer_state, buffer_key
-            ).experience  # returns experience.first, experience.second w/ size (buffer_batch_size, ...)
+            learn_batch = (
+                self._buffer_fn.sample(state.buffer_state, buffer_key).experience
+            )  # returns experience.first, experience.second w/ size (buffer_batch_size, ...)
 
             # update model, 1 epoch
             params = state.params
@@ -365,9 +344,7 @@ class DQN:
                 dones=jnp.zeros((), dtype=jnp.bool_),  # () i.e. scalar
             )
 
-            buffer_state = self._buffer_fn.init(
-                init_transition
-            )  # type TrajectoryBufferState
+            buffer_state = self._buffer_fn.init(init_transition)  # type TrajectoryBufferState
             initial_params = network.init(subkey, dummy_obs)
             initial_opt_state = optimizer.init(initial_params)
             self.optimizer = optimizer
@@ -454,8 +431,7 @@ class DQN:
         self._logger = Logger()
         self._logger.metrics = {
             "trained": None,
-            # "total_steps": None,  # TODO: these aren't tracked
-            "sgd_steps": None,  # TODO: these are tracked, but updating doesn't work (b/c they're not traced?)
+            "sgd_steps": None,
             "scheduler_steps": None,
             "loss_value": None,
             "max_q_val": None,
@@ -482,9 +458,7 @@ class DQN:
         )
         return memory
 
-    def update(
-        self, traj_batch, obs: jnp.ndarray, state: DQNTrainingState, mem: MemoryState
-    ):
+    def update(self, traj_batch, obs: jnp.ndarray, state: DQNTrainingState, mem: MemoryState):
         """Update the agent's state based on a batch of data. Called at end of rollout.
         Expects batched inputs for traj_batch, state, mem.
         traj_batch: [num_timesteps, batch_size, ...]
@@ -533,9 +507,7 @@ class DQN:
         # determine whether we update. boolean.
         is_learn_time = (
             self._buffer_fn.can_sample(new_buffer_state)  # enough experience in buffer
-            & (
-                state.n_episodes > self._initial_exploration_episodes
-            )  # pure exploration phase over
+            & (state.n_episodes > self._initial_exploration_episodes)  # pure exploration phase over
             & (
                 state.n_episodes % self._training_interval_episodes == 0
             )  # training interval (1=every time agent.update is called)
@@ -570,9 +542,7 @@ class DQN:
         metrics["explo_epsilon"] = state.current_epsilon
 
         # determine if update target network
-        is_update_target_time = (
-            state.n_episodes % self._target_update_interval_episodes == 0
-        )
+        is_update_target_time = state.n_episodes % self._target_update_interval_episodes == 0
 
         # update target network
         state = jax.lax.cond(
@@ -613,9 +583,7 @@ class DQN:
             pickle.dump(state_data, f)
 
     @classmethod
-    def load_state(
-        cls, filepath: str, network, optimizer: optax.GradientTransformation
-    ):
+    def load_state(cls, filepath: str, network, optimizer: optax.GradientTransformation):
         """
         Load the agent's state from a file and return a DQN instance.
         """
@@ -722,14 +690,10 @@ def make_DQN_agent(
         or args.get("env_id") == "MarketEnv-InfiniteInventoryEpisodic"
         or args.get("env_id") == "MarketEnv-InfiniteInventoryInfiniteEpisode"
     ):
-        network = make_dqn_marketenv_network(
-            action_spec, agent_args.get("hidden_sizes")
-        )
+        network = make_dqn_marketenv_network(action_spec, agent_args.get("hidden_sizes"))
 
     else:
-        raise NotImplementedError(
-            f"No DQN network implemented for env {args.get('env_id')}"
-        )
+        raise NotImplementedError(f"No DQN network implemented for env {args.get('env_id')}")
 
     # LR scheduling: number of optimizer.update() calls: 1x per sgd_step
     # NOTE: below assumes 1x call of update() per rollout -- ag2 has n_outer updates per rollout.
@@ -754,9 +718,7 @@ def make_DQN_agent(
         )
 
     else:  # fixed LR
-        scale = optax.inject_hyperparams(optax.scale)(
-            step_size=-agent_args.get("learning_rate")
-        )
+        scale = optax.inject_hyperparams(optax.scale)(step_size=-agent_args.get("learning_rate"))
         optimizer = optax.chain(
             optax.clip_by_global_norm(agent_args.get("max_gradient_norm")),
             optax.scale_by_adam(eps=agent_args.get("adam_epsilon")),
@@ -797,8 +759,6 @@ def make_DQN_agent(
         polyak_tau=agent_args.get("polyak_tau"),
         initial_exploration_episodes=agent_args.get("initial_exploration_episodes"),
         training_interval_episodes=agent_args.get("training_interval_episodes"),
-        target_update_interval_episodes=agent_args.get(
-            "target_update_interval_episodes"
-        ),
+        target_update_interval_episodes=agent_args.get("target_update_interval_episodes"),
     )
     return agent

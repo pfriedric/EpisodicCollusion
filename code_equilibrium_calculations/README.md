@@ -1,29 +1,30 @@
 # GNEP Solver
 
-This script solves a Generalized Nash Equilibrium Problem (GNEP) for a multi-agent pricing scenario.
+This script solves a Generalized Nash Equilibrium Problem (GNEP) for a multi-agent pricing scenario. Navigate into this folder before running any scripts.
 
-## Requirements
-
-To run this script, you need to have Python 3.6+ installed along with the following packages:
-
-- numpy
-- pyomo
-- amplpy
-
-You can install these packages using `pip`:
+### Requirements
+Create and activate a virtual environment, then install requirements:
 
 ```
-$ pip install numpy pyomo amplpy
+$ uv venv coll_venv --python 3.10
+$ source coll_venv/bin/activate
+$ uv pip install --no-cache-dir -r requirements.txt
 ```
 
-Additionally, you need to have one of the following solvers installed:
+For `amplpy`, you may need a free license, see instructions [on their site](https://amplpy.ampl.com/en/latest/).
+
+Additionally, install numerical solvers via
+
+`$ uv pip install -i https://portal.ampl.com/dl/pypi ampl_module_base ampl_module_coin`
+
+We're using the following numerical solvers:
 - IPOPT
 - BONMIN
 - COUENNE
 
-These can be obtained from the COIN-OR site. Note: only Bonmin or Couenne correctly model the integer-valued demand.
+Details can be found on the [COIN-OR site](https://www.coin-or.org/downloading/). Note: only Bonmin or Couenne correctly model the integer-valued demand.
 
-## Usage
+### Usage
 
 Run the script from the command line with various arguments:
 
@@ -31,8 +32,7 @@ Run the script from the command line with various arguments:
 $ python gnep_cs.py [arguments]
 ```
 
-
-## Arguments
+### Arguments
 
 The script accepts the following command-line arguments:
 
@@ -51,7 +51,7 @@ The script accepts the following command-line arguments:
 - `--debug`: Enable debug mode (default: False)
 - `--initial_prices`: Method to initialize prices (choices: "zeros", "random", "marginal_cost", "marginal_cost_plus_random", "quality_factor", default: "quality_factor")
 
-## Example
+### Example
 
 ```
 $ python gnep_cs.py --N 2 --time_horizon 5 --capacities 440 440 --solver_name bonmin

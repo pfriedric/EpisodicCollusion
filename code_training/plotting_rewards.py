@@ -1,5 +1,4 @@
 # %%
-import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 import jax.numpy as jnp
@@ -32,14 +31,12 @@ env = MarketEnv(num_agents=2, num_actions=num_prices, time_horizon=1)
 
 # calc unconstrained demand using the unconstrained competitive & collusive prices
 _, _, _, _, _, unconstrained_competitive_price, unconstrained_collusive_price = (
-    possible_prices_func(
-        p_N=p_N_unconstrained, p_M=p_M_365, num_price_steps=num_prices, xi=xi
-    )
+    possible_prices_func(p_N=p_N_unconstrained, p_M=p_M_365, num_price_steps=num_prices, xi=xi)
 )
 
 # calc constrained demand at 420 inventory level
-_, _, _, _, _, constrained_competitive_price, constrained_collusive_price = (
-    possible_prices_func(p_N=p_N_420, p_M=p_M_365, num_price_steps=num_prices, xi=xi)
+_, _, _, _, _, constrained_competitive_price, constrained_collusive_price = possible_prices_func(
+    p_N=p_N_420, p_M=p_M_365, num_price_steps=num_prices, xi=xi
 )
 
 # Create a dummy state for demand calculation
@@ -170,21 +167,17 @@ def calculate_reward_matrices(
             # By passing reward_constraint_for_comparison_grid (default: unconstrained), we can rescale the output using the
             # lowest / highest rewards across both unconstrained & constrained setting.
             # b/c default is unconstrained, `reward_constraint_for_comparison_grid` only needs to be passed if calculating unconstrained rewards
-            compared_demand1 = jnp.minimum(
-                reward_constraint_for_comparison_grid, demands[0]
-            )
-            compared_demand2 = jnp.minimum(
-                reward_constraint_for_comparison_grid, demands[1]
-            )
+            compared_demand1 = jnp.minimum(reward_constraint_for_comparison_grid, demands[0])
+            compared_demand2 = jnp.minimum(reward_constraint_for_comparison_grid, demands[1])
             compared_reward1 = calculate_reward(price1, compared_demand1)
             compared_reward2 = calculate_reward(price2, compared_demand2)
             compared_average_reward = (compared_reward1 + compared_reward2) / 2
             compared_reward_matrix_agent1 = compared_reward_matrix_agent1.at[i, j].set(
                 compared_reward1
             )
-            compared_average_reward_matrix = compared_average_reward_matrix.at[
-                i, j
-            ].set(compared_average_reward)
+            compared_average_reward_matrix = compared_average_reward_matrix.at[i, j].set(
+                compared_average_reward
+            )
 
             ## tracking the lowest/highest rewards for scaling.
             # we can
@@ -388,8 +381,7 @@ def create_average_reward_heatmap(
         # scaling source min: it's the reward constrained-min, unless we're doing situation specific and asking for unconstrained
         scaling_source_min = (
             "(unconstrained)"
-            if rescale_reward == "min_max_over_computed_grid"
-            and reward_constraint >= 1000
+            if rescale_reward == "min_max_over_computed_grid" and reward_constraint >= 1000
             else "(constrained)"
         )
         title += f"\nScaling: [0, 1]-trafo with min={avg_scaling_min:.0f} {scaling_source_min}, max={avg_scaling_max:.0f}"
@@ -400,9 +392,7 @@ def create_average_reward_heatmap(
     elif rescale_reward == "min_max_over_compared_grid":
         # if reward_constraint_for_comparison_grid < 1000, pass constrained.
         scaling_source = (
-            "(constrained)"
-            if reward_constraint_for_comparison_grid < 1000
-            else "(unconstrained)"
+            "(constrained)" if reward_constraint_for_comparison_grid < 1000 else "(unconstrained)"
         )
         title += f"\nScaling: [0, 1]-trafo with min={avg_scaling_min:.0f} {scaling_source}, max={avg_scaling_max:.0f}"
 
@@ -417,7 +407,6 @@ def create_average_reward_heatmap(
 def make_four_average_reward_heatmaps(
     rescale_reward=False, price_constraint="unconstrained", reward_constraint=1e6
 ):
-
     ## UNCONSTRAINED PRICES
     print(f"unconstrained setting")
     create_average_reward_heatmap(
@@ -515,7 +504,7 @@ def create_individual_reward_heatmap(
             plt.text(
                 j + 0.5,
                 i + 0.5,
-                f"{reward_matrix_agent1[i,j]:{fmt}}\n{reward_matrix_agent2[i,j]:{fmt}}",
+                f"{reward_matrix_agent1[i, j]:{fmt}}\n{reward_matrix_agent2[i, j]:{fmt}}",
                 ha="center",
                 va="center",
                 color="black",
@@ -556,20 +545,21 @@ def create_individual_reward_heatmap(
     ]:
         scaling_source = (
             "(constrained)"
-            if rescale_reward == "min_max_over_computed_grid"
-            and reward_constraint < 1000
+            if rescale_reward == "min_max_over_computed_grid" and reward_constraint < 1000
             else "(unconstrained)"
         )
-        title += f"\nScaling: min={indiv_scaling_min:.0f}, max={indiv_scaling_max:.0f} {scaling_source}"
+        title += (
+            f"\nScaling: min={indiv_scaling_min:.0f}, max={indiv_scaling_max:.0f} {scaling_source}"
+        )
 
     if rescale_reward == "min_max_over_compared_grid":
         # if reward_constraint_for_comparison_grid < 1000, pass constrained.
         scaling_source = (
-            "(constrained)"
-            if reward_constraint_for_comparison_grid < 1000
-            else "(unconstrained)"
+            "(constrained)" if reward_constraint_for_comparison_grid < 1000 else "(unconstrained)"
         )
-        title += f"\nScaling: min={indiv_scaling_min:.0f}, max={indiv_scaling_max:.0f} {scaling_source}"
+        title += (
+            f"\nScaling: min={indiv_scaling_min:.0f}, max={indiv_scaling_max:.0f} {scaling_source}"
+        )
 
     plt.title(title)
     plt.show()
@@ -644,9 +634,7 @@ make_four_individual_reward_heatmaps(
 
 # %%
 ### REWARD DIFFERENCE HEATMAP ###
-def create_reward_difference_heatmap(
-    price_constraint, reward_constraint, rescale_reward=False
-):
+def create_reward_difference_heatmap(price_constraint, reward_constraint, rescale_reward=False):
     (
         _,
         reward_matrix_agent1,
@@ -695,9 +683,7 @@ def create_reward_difference_heatmap(
 
 def make_four_reward_difference_heatmaps(rescale_reward=False):
     print("Unconstrained setting")
-    create_reward_difference_heatmap(
-        "unconstrained", 1e6, rescale_reward=rescale_reward
-    )
+    create_reward_difference_heatmap("unconstrained", 1e6, rescale_reward=rescale_reward)
     print("Constrained prices and rewards")
     create_reward_difference_heatmap("420", 420, rescale_reward=rescale_reward)
 
@@ -787,9 +773,7 @@ def make_four_3d_reward_surfaces(
         reward_constraint_for_comparison_grid=reward_constraint,
     )
     print(f"unconstrained prices, but constrained rewards:")
-    create_3d_reward_surface(
-        "unconstrained", reward_constraint, rescale_reward=rescale_reward
-    )
+    create_3d_reward_surface("unconstrained", reward_constraint, rescale_reward=rescale_reward)
     print(f"constrained prices, but unconstrained rewards: (at beginning of episode)")
     create_3d_reward_surface(
         price_constraint,
@@ -798,9 +782,7 @@ def make_four_3d_reward_surfaces(
         reward_constraint_for_comparison_grid=reward_constraint,
     )
     print("Constrained prices and rewards")
-    create_3d_reward_surface(
-        price_constraint, reward_constraint, rescale_reward=rescale_reward
-    )
+    create_3d_reward_surface(price_constraint, reward_constraint, rescale_reward=rescale_reward)
 
 
 make_four_3d_reward_surfaces(
@@ -880,8 +862,7 @@ def create_average_reward_contour_plot(
     ]:
         scaling_source = (
             "(constrained)"
-            if rescale_reward == "min_max_over_computed_grid"
-            and reward_constraint < 1000
+            if rescale_reward == "min_max_over_computed_grid" and reward_constraint < 1000
             else "(unconstrained)"
         )
         title += f"\nScaling: min={avg_scaling_min:.0f}, max={avg_scaling_max:.0f} {scaling_source}"
@@ -889,9 +870,7 @@ def create_average_reward_contour_plot(
         title += f"\nScaling: divided by max of {avg_scaling_max:.0f}"
     elif rescale_reward == "min_max_over_compared_grid":
         scaling_source = (
-            "(constrained)"
-            if reward_constraint_for_comparison_grid < 1000
-            else "(unconstrained)"
+            "(constrained)" if reward_constraint_for_comparison_grid < 1000 else "(unconstrained)"
         )
         title += f"\nScaling: min={avg_scaling_min:.0f}, max={avg_scaling_max:.0f} {scaling_source}"
 
@@ -996,7 +975,7 @@ def create_individual_reward_contour_plot(
             plt.text(
                 prices[j],
                 prices[i],
-                f"{reward_matrix_agent1[i,j]:{fmt}}\n{reward_matrix_agent2[i,j]:{fmt}}",
+                f"{reward_matrix_agent1[i, j]:{fmt}}\n{reward_matrix_agent2[i, j]:{fmt}}",
                 ha="center",
                 va="center",
                 color="white",
@@ -1005,9 +984,7 @@ def create_individual_reward_contour_plot(
 
     plt.xlabel("Agent 2 Price")
     plt.ylabel("Agent 1 Price")
-    title = (
-        "Individual Reward Contour Plot (Agent 1 color, Agent 1 top / Agent 2 bottom)"
-    )
+    title = "Individual Reward Contour Plot (Agent 1 color, Agent 1 top / Agent 2 bottom)"
     if price_constraint == "unconstrained" and reward_constraint >= 1000:
         title += "\nPrices and inventory unconstrained"
     else:
@@ -1027,24 +1004,23 @@ def create_individual_reward_contour_plot(
     ]:
         scaling_source = (
             "(constrained)"
-            if rescale_reward == "min_max_over_computed_grid"
-            and reward_constraint < 1000
+            if rescale_reward == "min_max_over_computed_grid" and reward_constraint < 1000
             else "(unconstrained)"
         )
-        title += f"\nScaling: min={indiv_scaling_min:.0f}, max={indiv_scaling_max:.0f} {scaling_source}"
+        title += (
+            f"\nScaling: min={indiv_scaling_min:.0f}, max={indiv_scaling_max:.0f} {scaling_source}"
+        )
     elif rescale_reward == "only_max_over_computed_and_compared_grid":
         title += f"\nScaling: divided by max of {indiv_scaling_max:.0f}"
     elif rescale_reward == "min_max_over_compared_grid":
         scaling_source = (
-            "(constrained)"
-            if reward_constraint_for_comparison_grid < 1000
-            else "(unconstrained)"
+            "(constrained)" if reward_constraint_for_comparison_grid < 1000 else "(unconstrained)"
         )
-        title += f"\nScaling: min={indiv_scaling_min:.0f}, max={indiv_scaling_max:.0f} {scaling_source}"
-    elif rescale_reward == False:
         title += (
-            f"\nNo rescaling. min={indiv_scaling_min:.0f}, max={indiv_scaling_max:.0f}"
+            f"\nScaling: min={indiv_scaling_min:.0f}, max={indiv_scaling_max:.0f} {scaling_source}"
         )
+    elif rescale_reward == False:
+        title += f"\nNo rescaling. min={indiv_scaling_min:.0f}, max={indiv_scaling_max:.0f}"
 
     plt.title(title)
     plt.legend()
@@ -1163,9 +1139,7 @@ def create_individual_3d_reward_plot(
     ax.set_xlabel("Agent 2 Price")
     ax.set_ylabel("Agent 1 Price")
     ax.set_zlabel("Agent 1's reward")
-    title = (
-        "Individual Reward Contour Plot (Agent 1 color, Agent 1 top / Agent 2 bottom)"
-    )
+    title = "Individual Reward Contour Plot (Agent 1 color, Agent 1 top / Agent 2 bottom)"
     if price_constraint == "unconstrained" and reward_constraint >= 1000:
         title += "\nPrices and inventory unconstrained"
     else:
@@ -1185,24 +1159,23 @@ def create_individual_3d_reward_plot(
     ]:
         scaling_source = (
             "(constrained)"
-            if rescale_reward == "min_max_over_computed_grid"
-            and reward_constraint < 1000
+            if rescale_reward == "min_max_over_computed_grid" and reward_constraint < 1000
             else "(unconstrained)"
         )
-        title += f"\nScaling: min={indiv_scaling_min:.0f}, max={indiv_scaling_max:.0f} {scaling_source}"
+        title += (
+            f"\nScaling: min={indiv_scaling_min:.0f}, max={indiv_scaling_max:.0f} {scaling_source}"
+        )
     elif rescale_reward == "only_max_over_computed_and_compared_grid":
         title += f"\nScaling: divided by max of {indiv_scaling_max:.0f}"
     elif rescale_reward == "min_max_over_compared_grid":
         scaling_source = (
-            "(constrained)"
-            if reward_constraint_for_comparison_grid < 1000
-            else "(unconstrained)"
+            "(constrained)" if reward_constraint_for_comparison_grid < 1000 else "(unconstrained)"
         )
-        title += f"\nScaling: min={indiv_scaling_min:.0f}, max={indiv_scaling_max:.0f} {scaling_source}"
-    elif rescale_reward == False:
         title += (
-            f"\nNo rescaling. min={indiv_scaling_min:.0f}, max={indiv_scaling_max:.0f}"
+            f"\nScaling: min={indiv_scaling_min:.0f}, max={indiv_scaling_max:.0f} {scaling_source}"
         )
+    elif rescale_reward == False:
+        title += f"\nNo rescaling. min={indiv_scaling_min:.0f}, max={indiv_scaling_max:.0f}"
 
     plt.title(title)
     plt.legend()
