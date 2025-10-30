@@ -3,7 +3,7 @@ _old/
 .hydra/
 exp/
 wandb/
-conf/archive
+code_training/conf/archive
 
 jax-profile/
 *.prof
@@ -173,6 +173,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+*_venv/
 
 # Spyder project settings
 .spyderproject
